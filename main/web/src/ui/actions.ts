@@ -16,7 +16,7 @@ const IS_SINGLE = typeof __SINGLE_FILE__ === 'boolean' && __SINGLE_FILE__;
 
 const st = () => useStore.getState();
 const t = () => translator(usePrefs.getState().lang);
-const notify = (text: string, kind: 'info' | 'error' = 'info') => st().notify(text, kind);
+const notify = (text: string, kind: 'info' | 'success' | 'error' = 'info') => st().notify(text, kind);
 const pool = () => st().allDocs().map((x) => x.diagram);
 
 /** Document key for file handles: stable per open document. */
@@ -68,19 +68,21 @@ export const actions = {
   save: async (saveAs = false) => {
     const s = st();
     const name = await guard(() => saveDiagram(s.diagram, keyOf(s.activeId), saveAs));
-    if (name) { st().markSaved(name); notify(`${t()('saved')}: ${name}`); }
+    if (name) { st().markSaved(name); notify(`${t()('saved')}: ${name}`, 'success'); }
   },
 
   saveAll: async () => {
     const startId = st().activeId;
+    let savedCount = 0;
     for (const doc of st().allDocs()) {
       if (!doc.dirty) continue;
       st().switchDoc(doc.id);
       const s = st();
       const name = await guard(() => saveDiagram(s.diagram, keyOf(s.activeId), false));
-      if (name) st().markSaved(name);
+      if (name) { st().markSaved(name); savedCount++; }
     }
     st().switchDoc(startId);
+    if (savedCount > 0) notify(t()('saved'), 'success');
   },
 
   closeDiagram: (id?: string) => {
@@ -105,18 +107,21 @@ export const actions = {
       else if (kind === 'svg') exportSvg(d);
       else if (kind === 'emf') exportEmf(d);
       else if (kind === 'pdf') await exportPdf(d);
-      notify(`${t()('exported')}: ${kind.toUpperCase()}`);
+      notify(`${t()('exported')}: ${kind.toUpperCase()}`, 'success');
     });
   },
 
   exportPngTiles: async (cols: number, rows: number) => {
     const n = await guard(() => exportPngMulti(st().diagram, cols, rows));
-    if (n) notify(`${t()('exported')}: ${n} PNG`);
+    if (n) notify(`${t()('exported')}: ${n} PNG`, 'success');
   },
 
   exportCode: (lang?: LangId) => {
     const l = lang ?? usePrefs.getState().codeLang;
-    void guard(() => exportCode(st().diagram, l, pool()));
+    void guard(() => {
+      exportCode(st().diagram, l, pool());
+      notify(`${t()('exported')}: ${l.toUpperCase()}`, 'success');
+    });
   },
 
   print: () => { notify(t()('printHint')); printDiagram(st().diagram); },
@@ -151,7 +156,7 @@ export const actions = {
 
   copyPicture: async () => {
     const ok = await copyPngToClipboard(st().diagram);
-    notify(ok ? t()('copied') : t()('clipboardFailed'), ok ? 'info' : 'error');
+    notify(ok ? t()('copied') : t()('clipboardFailed'), ok ? 'success' : 'error');
   },
 
   // ---------------------------------------------------------------- Diagram

@@ -10,6 +10,11 @@ build number. Desktop issue numbers refer to
 
 ## [Unreleased]
 
+## [3.32.35-web.6] – 2026-11-18 (corresponds to Structorizer 3.32-35)
+
+### Changed
+- **Frontend polish**: removed the thick bottom accent border from checked toggle icon buttons (keeping only the soft background tint cleanly) and restored green / red / blue functional colours (`--ok` green for saved status & success toasts, `--danger` red for errors & unsaved `•` indicators, `--info` blue for links, focus rings & info toasts).
+
 ## [3.32.35-web.5] – 2026-11-18 (corresponds to Structorizer 3.32-35)
 
 Fixed empty PDF printing, upgraded UI accent to Structorizer icon yellow with tactile active toggle tiles, added unsaved-changes leave protection, and expanded the MCP server on the Craft model.

@@ -14,7 +14,7 @@ current browser, including Safari on iPad (desktop issue
   resources. Both builds enforce this with a Content Security Policy (`connect-src 'none'`).
 - **Compatible**: reads and writes the `.nsd` files of Structorizer Desktop 3.32.
 
-Version **3.32-35** (web build `3.32.35-web.5`) · [Changelog](CHANGELOG.md) ·
+Version **3.32-35** (web build `3.32.35-web.6`) · [Changelog](CHANGELOG.md) ·
 [Plan](info/plan.md) · [Roadmap](info/04-roadmap.md)
 
 <p align="center">

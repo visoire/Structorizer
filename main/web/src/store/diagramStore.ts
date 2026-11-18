@@ -50,7 +50,7 @@ interface State {
   fitTick: number;
   /** Touch helper: next insert goes before the selection (desktop: Shift + button). */
   insertBefore: boolean;
-  message: { text: string; kind: 'info' | 'error' } | null;
+  message: { text: string; kind: 'info' | 'success' | 'error' } | null;
 
   // actions
   commit: (d: Diagram, selection?: Selection) => void;
@@ -89,7 +89,7 @@ interface State {
   openContextMenu: (pos: { x: number; y: number } | null) => void;
   requestFit: () => void;
   setInsertBefore: (b: boolean) => void;
-  notify: (text: string, kind?: 'info' | 'error') => void;
+  notify: (text: string, kind?: 'info' | 'success' | 'error') => void;
   navigate: (dir: 'up' | 'down' | 'left' | 'right') => void;
 }
 
