@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root xmlns:nsd="https://structorizer.fisch.lu" version="3.32-35" preAlt="" postAlt="" preCase="" postCase="" preFor="for" postFor="to" stepFor="by" preForIn="foreach" postForIn="in" preWhile="while" postWhile="" preRepeat="until" postRepeat="" preLeave="leave" preReturn="return" preExit="exit" preThrow="throw" input="INPUT" output="OUTPUT" ignoreCase="true" origin="Structorizer Web 0.1.0" text="&#34;TemperatureTable&#34;" comment="&#34;Prints a Fahrenheit to Celsius table.&#34;,&#34;Input, processing, output (IPO).&#34;" color="ffffff" type="program" style="nice">
+	<children>
+		<instruction text="&#34;INPUT &#34;&#34;Start (°F): &#34;&#34;, start&#34;,&#34;INPUT &#34;&#34;End (°F): &#34;&#34;, finish&#34;" comment="&#34;Read the range from the user&#34;" color="80ff80" rotated="0" disabled="0"></instruction>
+		<alternative text="&#34;start &#62; finish&#34;" comment="&#34;Swap if the range is reversed&#34;" color="ffffff" branch_colors="," disabled="0">
+			<qTrue>
+				<instruction text="&#34;tmp &#60;- start&#34;,&#34;start &#60;- finish&#34;,&#34;finish &#60;- tmp&#34;" comment="" color="ffff80" rotated="0" disabled="0"></instruction>
+			</qTrue>
+			<qFalse>
+			</qFalse>
+		</alternative>
+		<for text="&#34;for f &#60;- start to finish by 10&#34;" comment="" counterVar="f" startValue="start" endValue="finish" stepConst="10" style="COUNTER" color="ffffff" disabled="0">
+			<qFor>
+				<instruction text="&#34;c &#60;- (f - 32.0) * 5.0 / 9.0&#34;" comment="" color="ffff80" rotated="0" disabled="0"></instruction>
+				<instruction text="&#34;OUTPUT f, &#34;&#34; °F = &#34;&#34;, round(c), &#34;&#34; °C&#34;&#34;&#34;" comment="" color="80ff80" rotated="0" disabled="0"></instruction>
+			</qFor>
+		</for>
+	</children>
+</root>

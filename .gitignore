@@ -1,0 +1,15 @@
+# dependencies and build output
+node_modules/
+main/web/dist/
+main/web/tests/out/
+
+# original desktop sources and private notes (not part of this repository)
+sourcecode/
+info/grok.txt
+
+# editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
