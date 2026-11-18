@@ -85,7 +85,11 @@ export function sceneToSvg(scene: Scene, opts: SvgOptions = {}): string {
         break;
       case 'poly': {
         const pts = it.points.map(([x, y]) => `${n(x + 0.5)},${n(y + 0.5)}`).join(' ');
-        out.push(it.closed ? `<polygon points="${pts}" fill="${themedFill(it.fill, theme) ?? 'none'}"/>` : `<polyline points="${pts}"/>`);
+        out.push(
+          it.closed
+            ? `<polygon points="${pts}" fill="${themedFill(it.fill, theme) ?? 'none'}"${it.stroke === false ? ' stroke="none"' : ''}/>`
+            : `<polyline points="${pts}"/>`,
+        );
         break;
       }
       case 'hatch':

@@ -378,6 +378,13 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-
 }
 .swatch:hover { transform: scale(1.08); }
 .swatch.on { box-shadow: 0 0 0 2px var(--menu-bg), 0 0 0 4px var(--sel-line); }
+.swatch.small { width: 22px; height: 22px; border-radius: 4px; }
+.branch-color-bar {
+  position: absolute; transform: translateX(-50%); z-index: 25;
+  display: flex; gap: 4px; padding: 5px 7px; border-radius: var(--r-menu);
+  background: var(--menu-bg); box-shadow: var(--shadow-popup);
+  animation: pop-in var(--t-fast) var(--ease);
+}
 .font-preview { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-widget); background: #fff; color: #000; }
 
 /* ================================================================ dialogs */

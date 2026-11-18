@@ -75,4 +75,50 @@ describe('store', () => {
     expect(isDirty(st())).toBe(false);
     expect(anyDirty(st())).toBe(false);
   });
+
+  it('extends multi-selection with Shift+Up/Down and supports range operations and transmute merge (P1-28, P1-30)', () => {
+    st().insert('instruction');
+    st().closeEditor(false);
+    st().updateSelected({ text: ['a <- 1'] });
+    st().insert('instruction');
+    st().closeEditor(false);
+    st().updateSelected({ text: ['b <- 2'] });
+    st().insert('instruction');
+    st().closeEditor(false);
+    st().updateSelected({ text: ['c <- 3'] });
+
+    const [e0, e1] = st().diagram.children;
+    st().select({ t: 'el', id: e0.id });
+    st().extendSelection('down');
+    expect(st().selection).toEqual({ t: 'el', id: e1.id, anchorId: e0.id, ids: [e0.id, e1.id] });
+
+    // Transmute merges the two selected instructions into a single multi-line instruction
+    expect(st().transmute()).toBe(true);
+    expect(st().diagram.children.length).toBe(2);
+    expect(st().diagram.children[0].text).toEqual(['a <- 1', 'b <- 2']);
+
+    // Transmute on the multi-line instruction splits it back and selects the range
+    expect(st().transmute()).toBe(true);
+    expect(st().diagram.children.length).toBe(3);
+    const sel = st().selection;
+    expect(sel && sel.t === 'el' && sel.ids?.length).toBe(2);
+
+    // Shift moves the two-element range down past the third element
+    st().shift(1);
+    expect(st().diagram.children.map((e) => e.text[0])).toEqual(['c <- 3', 'a <- 1', 'b <- 2']);
+
+    // Delete removes the entire selected range
+    st().removeSelected();
+    expect(st().diagram.children.map((e) => e.text[0])).toEqual(['c <- 3']);
+  });
+
+  it('colours branch header triangles of IF and CASE elements (P1-29)', () => {
+    st().insert('alternative');
+    st().closeEditor(false);
+    const alt = st().diagram.children[0];
+    st().select({ t: 'el', id: alt.id, branchHead: 0 });
+    st().setBranchColor('80ff80');
+    const updated = st().diagram.children[0];
+    expect(updated.kind === 'alternative' && updated.branchHeadColors).toEqual(['80ff80', '']);
+  });
 });

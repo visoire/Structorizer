@@ -139,7 +139,9 @@ export function sceneToEmf(scene: Scene, measure: MeasureFn, face?: string): Uin
       case 'poly':
         if (it.closed) {
           if (it.fill && it.fill !== 'none') brush(it.fill); else rec(EMR.SELECTOBJECT, (b) => b.u32(NULL_BRUSH));
+          if (it.stroke === false) rec(EMR.SELECTOBJECT, (b) => b.u32(NULL_PEN));
           poly(EMR.POLYGON16, it.points);
+          if (it.stroke === false) rec(EMR.SELECTOBJECT, (b) => b.u32(pen));
         } else poly(EMR.POLYLINE16, it.points);
         break;
       case 'hatch':

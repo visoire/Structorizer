@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Interactive diagram: tap selects, double tap edits, drag (mouse) or long press (touch) moves, pinch zooms.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createLayoutEngine, hitTest, nearestGap, type Gap, type Hit, type Scene } from '../core/layout';
+import { createLayoutEngine, hitBranchHead, hitTest, nearestGap, type Gap, type Hit, type Scene } from '../core/layout';
+import { DEFAULT_COLORS, findById } from '../core/model';
 import { isInside, sameRef } from '../core/model/tree';
 import { sceneToSvg } from '../core/render/svg';
-import { useStore, type Selection } from '../store/diagramStore';
+import { selectedIds, useStore, type Selection } from '../store/diagramStore';
 import { useTranslator } from '../i18n';
 import { resolvedTheme, usePrefs } from '../store/prefsStore';
 import { measure, viewLayoutOptions } from './exporters';
@@ -158,11 +159,19 @@ export function DiagramView() {
       return;
     }
     if (cancelled || p.cancelled) return;
-    const sel = selectionOf(p.hit);
+    const pt = toScene(e.clientX, e.clientY);
+    const branchHead = hitBranchHead(p.hit, pt.x, pt.y);
+    const sel: Selection = p.hit?.t === 'el' && branchHead >= 0
+      ? { t: 'el', id: p.hit.id, branchHead }
+      : selectionOf(p.hit);
     const now = Date.now();
     const isDouble = now - lastTap.current.time < 400 && sameSelection(lastTap.current.sel, sel);
     lastTap.current = { time: now, sel };
-    store.select(sel);
+    if (e.shiftKey && sel?.t === 'el' && sel.branchHead === undefined) {
+      store.selectRangeTo(sel.id);
+    } else {
+      store.select(sel);
+    }
     if (isDouble && sel) {
       if (sel.t === 'el') store.openEditor({ t: 'el', id: sel.id, isNew: false });
       else if (sel.t === 'root') store.openEditor({ t: 'root' });
@@ -170,6 +179,11 @@ export function DiagramView() {
   };
 
   // selection overlay geometry
+  const selIds = useMemo(() => new Set(selectedIds(selection)), [selection]);
+  const selHits = useMemo(() => {
+    if (!selection || selection.t !== 'el') return [];
+    return scene.hits.filter((h): h is Extract<Hit, { t: 'el' }> => h.t === 'el' && selIds.has(h.id));
+  }, [scene, selection, selIds]);
   const selHit = useMemo(() => {
     if (!selection) return null;
     return scene.hits.find((h) =>
@@ -177,6 +191,18 @@ export function DiagramView() {
       (selection.t === 'seq' && h.t === 'seq' && sameRef(h.ref, selection.ref)) ||
       (selection.t === 'root' && h.t === 'root')) ?? null;
   }, [scene, selection]);
+
+  const activeBranchPoly = useMemo(() => {
+    if (selection?.t !== 'el' || selection.branchHead === undefined || !selHit || selHit.t !== 'el') return null;
+    return selHit.branchHeads?.[selection.branchHead] ?? null;
+  }, [selection, selHit]);
+
+  const activeBranchColor = useMemo(() => {
+    if (selection?.t !== 'el' || selection.branchHead === undefined) return 'ffffff';
+    const el = findById(diagram, selection.id)?.el;
+    if (!el || (el.kind !== 'alternative' && el.kind !== 'case')) return 'ffffff';
+    return el.branchHeadColors?.[selection.branchHead] || 'ffffff';
+  }, [diagram, selection]);
 
   // fit to window on request
   const fitTick = useStore((s) => s.fitTick);
@@ -201,11 +227,16 @@ export function DiagramView() {
 
   const overlay = (
     <svg className="overlay" width={scene.width * zoom} height={scene.height * zoom} viewBox={`0 0 ${scene.width} ${scene.height}`} aria-hidden="true">
-      {selHit && selHit.t === 'el' && (
-        <>
-          <rect x={selHit.head.x + 1} y={selHit.head.y + 1} width={Math.max(0, selHit.head.w - 1)} height={Math.max(0, selHit.head.h - 1)} className="sel-fill" />
-          <rect x={selHit.x + 1} y={selHit.y + 1} width={Math.max(0, selHit.w - 1)} height={Math.max(0, selHit.h - 1)} className="sel-outline" />
-        </>
+      {selHits.map((h) => (
+        <g key={h.id}>
+          {!activeBranchPoly && (
+            <rect x={h.head.x + 1} y={h.head.y + 1} width={Math.max(0, h.head.w - 1)} height={Math.max(0, h.head.h - 1)} className="sel-fill" />
+          )}
+          <rect x={h.x + 1} y={h.y + 1} width={Math.max(0, h.w - 1)} height={Math.max(0, h.h - 1)} className="sel-outline" />
+        </g>
+      ))}
+      {activeBranchPoly && (
+        <polygon points={activeBranchPoly.map(([x, y]) => `${x},${y}`).join(' ')} className="sel-fill sel-outline" />
       )}
       {selHit && selHit.t === 'seq' && (
         <rect x={selHit.x + 1} y={selHit.y + 1} width={selHit.w - 1} height={selHit.h - 1} className="sel-fill sel-outline" />
@@ -221,6 +252,16 @@ export function DiagramView() {
       )}
     </svg>
   );
+
+  const branchPopoverPos = useMemo(() => {
+    if (!activeBranchPoly) return null;
+    const xs = activeBranchPoly.map((p) => p[0]);
+    const ys = activeBranchPoly.map((p) => p[1]);
+    return {
+      left: ((Math.min(...xs) + Math.max(...xs)) / 2) * zoom,
+      top: Math.max(...ys) * zoom + 6,
+    };
+  }, [activeBranchPoly, zoom]);
 
   return (
     <div className="diagram-scroll" ref={scrollRef}
@@ -246,6 +287,16 @@ export function DiagramView() {
       >
         <div className="diagram-svg" dangerouslySetInnerHTML={{ __html: svg }} />
         {overlay}
+        {branchPopoverPos && (
+          <div className="branch-color-bar" style={{ left: branchPopoverPos.left, top: branchPopoverPos.top }}
+            onPointerDown={(e) => e.stopPropagation()}>
+            {DEFAULT_COLORS.map((c) => (
+              <button key={c} type="button" className={'swatch small' + (activeBranchColor === c ? ' on' : '')}
+                style={{ background: '#' + c }} aria-label={'#' + c} aria-pressed={activeBranchColor === c}
+                onClick={() => useStore.getState().setBranchColor(c)} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -137,6 +137,8 @@ export function App() {
       else if (ctrl && e.altKey && lower === 'v') usePrefs.getState().set({ switchTextComments: !usePrefs.getState().switchTextComments, commentsPlusText: false });
       else if (ctrl && k === 'ArrowUp') actions.moveUp();
       else if (ctrl && k === 'ArrowDown') actions.moveDown();
+      else if (e.shiftKey && k === 'ArrowUp') st.extendSelection('up');
+      else if (e.shiftKey && k === 'ArrowDown') st.extendSelection('down');
       else if (k === 'ArrowUp') st.navigate('up');
       else if (k === 'ArrowDown') st.navigate('down');
       else if (k === 'ArrowLeft') st.navigate('left');

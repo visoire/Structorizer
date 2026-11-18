@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readNsd } from '../src/core/io';
-import { altHeaderWidth, createLayoutEngine, displayLine, fakeMeasure, hitTest, LINE_H, nearestGap, P } from '../src/core/layout';
-import { createDiagram, createElement, insertAt, walk } from '../src/core/model';
+import { altHeaderWidth, createLayoutEngine, displayLine, fakeMeasure, hitBranchHead, hitTest, LINE_H, nearestGap, P } from '../src/core/layout';
+import { createDiagram, createElement, insertAt, setBranchHeadColor, walk } from '../src/core/model';
 
 const fixture = (name: string) => readNsd(readFileSync(resolve(process.cwd(), 'tests/fixtures', name), 'utf8')).diagram;
 
@@ -65,5 +65,18 @@ describe('layout', () => {
 
   it('shows assignment arrows but keeps strings untouched', () => {
     expect(displayLine('x <- "a<-b" <= 3')).toBe('x ← "a<-b" ≤ 3');
+  });
+
+  it('emits branch head polygons and colours for IF and CASE (P1-29)', () => {
+    let d = createDiagram();
+    const alt = createElement('alternative', ['x > 0']);
+    d = insertAt(d, { seq: { owner: 'root' }, index: 0 }, alt);
+    d = setBranchHeadColor(d, alt.id, 0, '80ff80');
+    const scene = createLayoutEngine(fakeMeasure).layout(d);
+    const altHit = scene.hits.find((h) => h.t === 'el' && h.id === alt.id);
+    if (!altHit || altHit.t !== 'el') throw new Error('missing hit');
+    expect(altHit.branchHeads?.length).toBe(2);
+    expect(hitBranchHead(altHit, altHit.x + 4, altHit.y + altHit.head.h - 4)).toBe(0);
+    expect(scene.items.some((it) => it.t === 'poly' && it.fill === '#80ff80')).toBe(true);
   });
 });

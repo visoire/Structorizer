@@ -2,10 +2,10 @@
 // Application state (D-13: undo/redo as immutable snapshots).
 import { create } from 'zustand';
 import {
-  cloneWithNewIds, createDiagram, createElement, findById, insertAt, removeById, shiftElement,
+  cloneWithNewIds, createDiagram, createElement, findById, insertAt, removeById, setBranchHeadColor, shiftElement,
   updateElement, moveTo, type Diagram, type Element, type ElementKind, type ElementPatch, type Position, type SeqRef,
 } from '../core/model';
-import { getSeq, slotsOf } from '../core/model/tree';
+import { getSeq, isInside, sameRef, slotsOf } from '../core/model/tree';
 import { mapSeq, replaceElement } from '../core/model/ops';
 import { newId } from '../core/model/ids';
 
@@ -22,10 +22,16 @@ export interface DocSlot {
 export type DialogName = 'prefs' | 'find' | 'about' | 'keys' | 'pngMulti' | null;
 
 export type Selection =
-  | { t: 'el'; id: string }
+  | { t: 'el'; id: string; ids?: string[]; anchorId?: string; branchHead?: number }
   | { t: 'seq'; ref: SeqRef }
   | { t: 'root' }
   | null;
+
+/** Ordered list of selected element IDs (single or contiguous multi-selection). */
+export function selectedIds(sel: Selection): string[] {
+  if (sel?.t !== 'el') return [];
+  return sel.ids && sel.ids.length > 0 ? sel.ids : [sel.id];
+}
 
 const MAX_UNDO = 100;
 
@@ -39,6 +45,7 @@ interface State {
   past: Diagram[];
   future: Diagram[];
   clipboard: Element | null;
+  clipboardItems: Element[];
   editor: EditorTarget | { t: 'root' } | null;
   zoom: number;
   /** id of the active document; the others live in `docs`. */
@@ -59,6 +66,9 @@ interface State {
   undo: () => void;
   redo: () => void;
   select: (s: Selection) => void;
+  extendSelection: (dir: 'up' | 'down') => void;
+  selectRangeTo: (id: string) => void;
+  setBranchColor: (color: string) => void;
   insert: (kind: ElementKind, before?: boolean) => void;
   removeSelected: () => void;
   updateSelected: (patch: ElementPatch) => void;
@@ -96,7 +106,9 @@ interface State {
 /** Where a new element goes for the current selection. */
 export function insertPosition(d: Diagram, sel: Selection, before: boolean): Position {
   if (sel?.t === 'el') {
-    const f = findById(d, sel.id);
+    const ids = selectedIds(sel);
+    const refId = before ? ids[0] : ids[ids.length - 1];
+    const f = findById(d, refId);
     if (f) return { seq: f.parentSeq, index: before ? f.index : f.index + 1 };
   }
   if (sel?.t === 'seq') return { seq: sel.ref, index: 0 };
@@ -111,6 +123,7 @@ export const useStore = create<State>((set, get) => ({
   past: [],
   future: [],
   clipboard: null,
+  clipboardItems: [],
   editor: null,
   zoom: 1,
   activeId: newId(),
@@ -150,6 +163,54 @@ export const useStore = create<State>((set, get) => ({
 
   select: (selection) => set({ selection }),
 
+  extendSelection: (dir) => {
+    const { diagram, selection, navigate } = get();
+    if (!selection || selection.t !== 'el') {
+      navigate(dir);
+      return;
+    }
+    const anchor = findById(diagram, selection.anchorId ?? selection.id);
+    const focus = findById(diagram, selection.id);
+    if (!anchor || !focus || !sameRef(anchor.parentSeq, focus.parentSeq)) return;
+    const seq = getSeq(diagram, anchor.parentSeq);
+    const nextIdx = Math.max(0, Math.min(seq.length - 1, focus.index + (dir === 'up' ? -1 : 1)));
+    const lo = Math.min(anchor.index, nextIdx);
+    const hi = Math.max(anchor.index, nextIdx);
+    const ids = seq.slice(lo, hi + 1).map((e) => e.id);
+    set({
+      selection: ids.length === 1
+        ? { t: 'el', id: seq[nextIdx].id }
+        : { t: 'el', id: seq[nextIdx].id, anchorId: anchor.el.id, ids },
+    });
+  },
+
+  selectRangeTo: (targetId) => {
+    const { diagram, selection } = get();
+    if (selection?.t === 'el') {
+      const anchor = findById(diagram, selection.anchorId ?? selection.id);
+      const target = findById(diagram, targetId);
+      if (anchor && target && sameRef(anchor.parentSeq, target.parentSeq)) {
+        const seq = getSeq(diagram, anchor.parentSeq);
+        const lo = Math.min(anchor.index, target.index);
+        const hi = Math.max(anchor.index, target.index);
+        const ids = seq.slice(lo, hi + 1).map((e) => e.id);
+        set({
+          selection: ids.length === 1
+            ? { t: 'el', id: targetId }
+            : { t: 'el', id: targetId, anchorId: anchor.el.id, ids },
+        });
+        return;
+      }
+    }
+    set({ selection: { t: 'el', id: targetId } });
+  },
+
+  setBranchColor: (color) => {
+    const { diagram, selection, commit } = get();
+    if (selection?.t !== 'el' || selection.branchHead === undefined) return;
+    commit(setBranchHeadColor(diagram, selection.id, selection.branchHead, color));
+  },
+
   insert: (kind, before = false) => {
     const { diagram, selection, commit } = get();
     const el = createElement(kind, undefined, diagram.keywords);
@@ -160,13 +221,15 @@ export const useStore = create<State>((set, get) => ({
 
   removeSelected: () => {
     const { diagram, selection, commit } = get();
-    if (selection?.t !== 'el') return;
-    const f = findById(diagram, selection.id);
-    if (!f) return;
-    const next = removeById(diagram, selection.id);
-    const seq = getSeq(next, f.parentSeq);
-    const neighbour = seq[Math.min(f.index, seq.length - 1)];
-    commit(next, neighbour ? { t: 'el', id: neighbour.id } : { t: 'seq', ref: f.parentSeq });
+    const ids = selectedIds(selection);
+    if (ids.length === 0) return;
+    const first = findById(diagram, ids[0]);
+    if (!first) return;
+    let next = diagram;
+    for (const id of ids) next = removeById(next, id);
+    const seq = getSeq(next, first.parentSeq);
+    const neighbour = seq[Math.min(first.index, seq.length - 1)];
+    commit(next, neighbour ? { t: 'el', id: neighbour.id } : { t: 'seq', ref: first.parentSeq });
   },
 
   updateSelected: (patch) => {
@@ -180,20 +243,59 @@ export const useStore = create<State>((set, get) => ({
   },
 
   move: (id, pos) => {
-    const { diagram, commit } = get();
+    const { diagram, selection, commit } = get();
+    const ids = selectedIds(selection);
+    if (ids.length > 1 && ids.includes(id)) {
+      const first = findById(diagram, ids[0]);
+      if (!first) return;
+      if (pos.seq.owner !== 'root' && ids.some((eid) => isInside(diagram, eid, pos.seq.owner))) return;
+      const els = ids.map((eid) => findById(diagram, eid)?.el).filter((e): e is Element => !!e);
+      if (els.length !== ids.length) return;
+      let index = pos.index;
+      if (sameRef(first.parentSeq, pos.seq)) {
+        const beforeCount = ids.filter((eid) => (findById(diagram, eid)?.index ?? Infinity) < pos.index).length;
+        index -= beforeCount;
+      }
+      let without = diagram;
+      for (const eid of ids) without = removeById(without, eid);
+      commit(insertAt(without, { seq: pos.seq, index }, ...els), {
+        t: 'el', id, anchorId: ids[0], ids,
+      });
+      return;
+    }
     commit(moveTo(diagram, id, pos), { t: 'el', id });
   },
 
   shift: (delta) => {
     const { diagram, selection, commit } = get();
-    if (selection?.t === 'el') commit(shiftElement(diagram, selection.id, delta));
+    const ids = selectedIds(selection);
+    if (ids.length === 0) return;
+    if (ids.length === 1) {
+      commit(shiftElement(diagram, ids[0], delta));
+      return;
+    }
+    const first = findById(diagram, ids[0]);
+    const last = findById(diagram, ids[ids.length - 1]);
+    if (!first || !last || !sameRef(first.parentSeq, last.parentSeq)) return;
+    const lo = Math.min(first.index, last.index);
+    const hi = Math.max(first.index, last.index);
+    commit(mapSeq(diagram, first.parentSeq, (seq) => {
+      if (delta === -1 && lo > 0) {
+        return [...seq.slice(0, lo - 1), ...seq.slice(lo, hi + 1), seq[lo - 1], ...seq.slice(hi + 1)];
+      }
+      if (delta === 1 && hi < seq.length - 1) {
+        return [...seq.slice(0, lo), seq[hi + 1], ...seq.slice(lo, hi + 1), ...seq.slice(hi + 2)];
+      }
+      return seq;
+    }));
   },
 
   copy: () => {
     const { diagram, selection } = get();
-    if (selection?.t !== 'el') return;
-    const f = findById(diagram, selection.id);
-    if (f) set({ clipboard: cloneWithNewIds(f.el) });
+    const ids = selectedIds(selection);
+    if (ids.length === 0) return;
+    const items = ids.map((id) => findById(diagram, id)?.el).filter((e): e is Element => !!e).map(cloneWithNewIds);
+    if (items.length > 0) set({ clipboard: items[0], clipboardItems: items });
   },
 
   cut: () => {
@@ -202,26 +304,45 @@ export const useStore = create<State>((set, get) => ({
   },
 
   paste: () => {
-    const { diagram, selection, clipboard, commit } = get();
-    if (!clipboard) return;
-    const el = cloneWithNewIds(clipboard);
-    commit(insertAt(diagram, insertPosition(diagram, selection, false), el), { t: 'el', id: el.id });
+    const { diagram, selection, clipboard, clipboardItems, commit } = get();
+    const src = clipboardItems.length > 0 ? clipboardItems : clipboard ? [clipboard] : [];
+    if (src.length === 0) return;
+    const els = src.map(cloneWithNewIds);
+    const next = insertAt(diagram, insertPosition(diagram, selection, false), ...els);
+    commit(
+      next,
+      els.length === 1
+        ? { t: 'el', id: els[0].id }
+        : { t: 'el', id: els[els.length - 1].id, anchorId: els[0].id, ids: els.map((e) => e.id) },
+    );
   },
 
   duplicate: () => {
     const { diagram, selection, commit } = get();
-    if (selection?.t !== 'el') return;
-    const f = findById(diagram, selection.id);
-    if (!f) return;
-    const el = cloneWithNewIds(f.el);
-    commit(insertAt(diagram, { seq: f.parentSeq, index: f.index + 1 }, el), { t: 'el', id: el.id });
+    const ids = selectedIds(selection);
+    if (ids.length === 0) return;
+    const last = findById(diagram, ids[ids.length - 1]);
+    if (!last) return;
+    const els = ids.map((id) => findById(diagram, id)?.el).filter((e): e is Element => !!e).map(cloneWithNewIds);
+    if (els.length === 0) return;
+    const next = insertAt(diagram, { seq: last.parentSeq, index: last.index + 1 }, ...els);
+    commit(
+      next,
+      els.length === 1
+        ? { t: 'el', id: els[0].id }
+        : { t: 'el', id: els[els.length - 1].id, anchorId: els[0].id, ids: els.map((e) => e.id) },
+    );
   },
 
   toggleDisabled: () => {
-    const { diagram, selection, update } = get();
-    if (selection?.t !== 'el') return;
-    const f = findById(diagram, selection.id);
-    if (f) update(f.el.id, { disabled: !f.el.disabled });
+    const { diagram, selection, commit } = get();
+    const ids = selectedIds(selection);
+    if (ids.length === 0) return;
+    const els = ids.map((id) => findById(diagram, id)?.el).filter((e): e is Element => !!e);
+    const targetState = els.some((e) => !e.disabled);
+    let next = diagram;
+    for (const id of ids) next = updateElement(next, id, { disabled: targetState });
+    commit(next);
   },
 
   toggleCollapsed: (value) => {
@@ -315,26 +436,51 @@ export const useStore = create<State>((set, get) => ({
     commit({ ...diagram, children: [] }, null);
   },
 
-  /** Desktop "Transmute" (Ctrl+T): change the element type where it makes sense. */
+  /** Desktop "Transmute" (Ctrl+T): change the element type where it makes sense, or merge/split instructions (P1-30). */
   transmute: () => {
     const { diagram, selection, commit } = get();
-    if (selection?.t !== 'el') return false;
-    const f = findById(diagram, selection.id);
+    const ids = selectedIds(selection);
+    if (ids.length === 0) return false;
+    if (ids.length > 1) {
+      const found = ids.map((id) => findById(diagram, id));
+      if (found.some((f) => !f)) return false;
+      const first = found[0]!;
+      const last = found[found.length - 1]!;
+      if (!sameRef(first.parentSeq, last.parentSeq)) return false;
+      const els = found.map((f) => f!.el);
+      if (!els.every((e) => e.kind === 'instruction' || e.kind === 'call' || e.kind === 'jump')) return false;
+      const merged: Element = {
+        id: newId(),
+        kind: 'instruction',
+        text: els.flatMap((e) => (e.text.length ? e.text : [''])),
+        comment: els.flatMap((e) => e.comment.filter((c) => c.trim() !== '')),
+        color: els[0].color,
+        disabled: els.every((e) => e.disabled),
+      };
+      const lo = Math.min(first.index, last.index);
+      const hi = Math.max(first.index, last.index);
+      commit(
+        mapSeq(diagram, first.parentSeq, (seq) => [...seq.slice(0, lo), merged, ...seq.slice(hi + 1)]),
+        { t: 'el', id: merged.id },
+      );
+      return true;
+    }
+    const f = findById(diagram, ids[0]);
     if (!f) return false;
     const el = f.el;
     if (el.kind === 'instruction' && el.text.length > 1) {
-      // split a multi-line instruction into single instructions
+      // split a multi-line instruction into single instructions (selected as a range so Ctrl+T can merge back)
       const parts = el.text.map((t) => ({ ...el, id: newId(), text: [t], comment: [] as string[] }));
       parts[0].comment = el.comment;
-      commit(mapSeq(diagram, f.parentSeq, (seq) => [...seq.slice(0, f.index), ...parts, ...seq.slice(f.index + 1)]), { t: 'el', id: parts[0].id });
+      commit(
+        mapSeq(diagram, f.parentSeq, (seq) => [...seq.slice(0, f.index), ...parts, ...seq.slice(f.index + 1)]),
+        { t: 'el', id: parts[parts.length - 1].id, anchorId: parts[0].id, ids: parts.map((p) => p.id) },
+      );
       return true;
     }
     const next: Partial<Record<Element['kind'], Element['kind']>> = { instruction: 'call', call: 'jump', jump: 'instruction', while: 'repeat', repeat: 'while' };
     const to = next[el.kind];
-    if (!to) {
-      // merge with the following instructions? desktop: sequence of instructions -> one instruction
-      return false;
-    }
+    if (!to) return false;
     commit(replaceElement(diagram, el.id, (e) => {
       if ((e.kind === 'while' || e.kind === 'repeat') && (to === 'while' || to === 'repeat')) return { ...e, kind: to } as Element;
       const base = { id: e.id, text: e.text, comment: e.comment, color: e.color, disabled: e.disabled };
@@ -343,20 +489,26 @@ export const useStore = create<State>((set, get) => ({
     return true;
   },
 
-  /** Desktop "Outsource": move the selected element into a new subroutine and call it. */
+  /** Desktop "Outsource": move the selected element(s) into a new subroutine and call it. */
   outsource: () => {
     const { diagram, selection } = get();
-    if (selection?.t !== 'el') return false;
-    const f = findById(diagram, selection.id);
-    if (!f) return false;
+    const ids = selectedIds(selection);
+    if (ids.length === 0) return false;
+    const first = findById(diagram, ids[0]);
+    const last = findById(diagram, ids[ids.length - 1]);
+    if (!first || !last || !sameRef(first.parentSeq, last.parentSeq)) return false;
+    const els = ids.map((id) => findById(diagram, id)?.el).filter((e): e is Element => !!e);
+    if (els.length === 0) return false;
     const used = new Set<string>();
     get().allDocs().forEach((x) => used.add((x.diagram.text[0] ?? '').split('(')[0].trim()));
     let n = 1;
     while (used.has(`sub${n}`)) n++;
     const name = `sub${n}`;
     const call = createElement('call', [`${name}()`]);
-    const sub = { ...createDiagram('sub'), text: [`${name}()`], children: [cloneWithNewIds(f.el)] };
-    const replaced = mapSeq(diagram, f.parentSeq, (seq) => seq.map((e) => (e.id === f.el.id ? call : e)));
+    const sub = { ...createDiagram('sub'), text: [`${name}()`], children: els.map(cloneWithNewIds) };
+    const lo = Math.min(first.index, last.index);
+    const hi = Math.max(first.index, last.index);
+    const replaced = mapSeq(diagram, first.parentSeq, (seq) => [...seq.slice(0, lo), call, ...seq.slice(hi + 1)]);
     get().commit(replaced, { t: 'el', id: call.id });
     // the new subroutine opens next to the current diagram, which stays active
     const s = get();

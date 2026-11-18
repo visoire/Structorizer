@@ -81,7 +81,9 @@ export function replaceElement(d: Diagram, id: string, fn: (el: Element) => Elem
   return mapSeq(d, found.parentSeq, (seq) => seq.map((e) => (e.id === id ? fn(e) : e)));
 }
 
-export type ElementPatch = Partial<Pick<Element, 'text' | 'comment' | 'color' | 'disabled' | 'collapsed'>>;
+export type ElementPatch = Partial<Pick<Element, 'text' | 'comment' | 'color' | 'disabled' | 'collapsed'>> & {
+  branchHeadColors?: (string | '')[];
+};
 
 /** Apply a patch; keeps the structure rules of D-05 for case and parallel. */
 export function updateElement(d: Diagram, id: string, patch: ElementPatch): Diagram {
@@ -93,6 +95,24 @@ export function updateElement(d: Diagram, id: string, patch: ElementPatch): Diag
       else if (next.kind === 'forever') next = { ...next, text: [] };
     }
     return next;
+  });
+}
+
+/** Set or clear the colour of one branch header triangle/trapezoid on an IF or CASE element (P1-29). */
+export function setBranchHeadColor(d: Diagram, id: string, branchIndex: number, color: string): Diagram {
+  return replaceElement(d, id, (el) => {
+    if (el.kind === 'alternative') {
+      const cur: [string, string] = [el.branchHeadColors?.[0] ?? '', el.branchHeadColors?.[1] ?? ''];
+      if (branchIndex === 0 || branchIndex === 1) cur[branchIndex] = color === 'ffffff' ? '' : color;
+      return { ...el, branchHeadColors: cur.some(Boolean) ? cur : undefined };
+    }
+    if (el.kind === 'case') {
+      const n = el.branches.length;
+      const cur = Array.from({ length: n }, (_, i) => el.branchHeadColors?.[i] ?? '');
+      if (branchIndex >= 0 && branchIndex < n) cur[branchIndex] = color === 'ffffff' ? '' : color;
+      return { ...el, branchHeadColors: cur.some(Boolean) ? cur : undefined };
+    }
+    return el;
   });
 }
 

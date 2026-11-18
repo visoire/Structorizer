@@ -14,12 +14,12 @@ export interface Rect { x: number; y: number; w: number; h: number }
 export type Item =
   | ({ t: 'rect'; fill?: string; stroke?: boolean; rx?: number } & Rect)
   | { t: 'line'; x1: number; y1: number; x2: number; y2: number; dashed?: boolean }
-  | { t: 'poly'; points: [number, number][]; fill?: string; closed?: boolean }
+  | { t: 'poly'; points: [number, number][]; fill?: string; closed?: boolean; stroke?: boolean }
   | { t: 'text'; x: number; y: number; s: string; anchor?: 'start' | 'middle' | 'end'; bold?: boolean; muted?: boolean; spans?: Span[] }
   | ({ t: 'hatch' } & Rect);
 
 export type Hit =
-  | ({ t: 'el'; id: string; kind: Element['kind']; head: Rect; comment: string[] } & Rect)
+  | ({ t: 'el'; id: string; kind: Element['kind']; head: Rect; comment: string[]; branchHeads?: [number, number][][] } & Rect)
   | ({ t: 'seq'; ref: SeqRef } & Rect)
   | ({ t: 'root' } & Rect);
 
@@ -338,6 +338,13 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
           const tW = m.t.w;
           rect(box, fill);
           setHead({ x, y, w, h: m.H });
+          const tri0: [number, number][] = [[x, y], [x + tW, y + m.H], [x, y + m.H]];
+          const tri1: [number, number][] = [[x + tW, y + m.H], [x + w, y], [x + w, y + m.H]];
+          (hits[hitIndex] as Extract<Hit, { t: 'el' }>).branchHeads = [tri0, tri1];
+          const c0 = el.branchHeadColors?.[0];
+          const c1 = el.branchHeadColors?.[1];
+          if (c0 && /^[0-9a-f]{6}$/i.test(c0)) items.push({ t: 'poly', closed: true, stroke: false, fill: fillOf(c0), points: tri0 });
+          if (c1 && /^[0-9a-f]{6}$/i.test(c1)) items.push({ t: 'poly', closed: true, stroke: false, fill: fillOf(c1), points: tri1 });
           line(x, y, x + tW, y + m.H);
           line(x + tW, y + m.H, x + w, y);
           // condition text: each line centred between both diagonals at its height (Alternative.draw)
@@ -371,15 +378,29 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
           widths[k - 1] += w - widths.reduce((a, b) => a + b, 0);
           const lastStart = widths.slice(0, k - 1).reduce((a, b) => a + b, 0);
           const tipX = k > 1 ? x + lastStart : x + w / 2;
+          const dyAt = (px: number) => k <= 1
+            ? 0
+            : px <= tipX
+              ? (m.H * (px - x)) / Math.max(1, tipX - x)
+              : m.H - (m.H * (px - tipX)) / Math.max(1, x + w - tipX);
+          const bHeads: [number, number][][] = [];
+          let bx = x;
+          for (let i = 0; i < k; i++) {
+            const rx = bx + widths[i];
+            const poly: [number, number][] = [[bx, y + m.H], [bx, y + dyAt(bx)], [rx, y + dyAt(rx)], [rx, y + m.H]];
+            bHeads.push(poly);
+            const bc = el.branchHeadColors?.[i];
+            if (bc && /^[0-9a-f]{6}$/i.test(bc)) items.push({ t: 'poly', closed: true, stroke: false, fill: fillOf(bc), points: poly });
+            bx = rx;
+          }
+          (hits[hitIndex] as Extract<Hit, { t: 'el' }>).branchHeads = bHeads;
           line(x, y, tipX, y + m.H);
           line(tipX, y + m.H, x + w, y);
           // column separators inside the header, from the diagonal down to the selector row bottom
           let cx = x;
           for (let i = 0; i < k; i++) {
             if (i > 0 && k > 1) {
-              const dy = cx <= tipX
-                ? (m.H * (cx - x)) / Math.max(1, tipX - x)
-                : m.H - (m.H * (cx - tipX)) / Math.max(1, x + w - tipX);
+              const dy = dyAt(cx);
               line(cx, y + dy, cx, y + m.H);
             }
             const label = disp(m.selectors[i] ?? '');
@@ -517,6 +538,28 @@ export function hitTest(scene: Scene, px: number, py: number): Hit | null {
     if (px >= h.x && px <= h.x + h.w && py >= h.y && py <= h.y + h.h) return h;
   }
   return null;
+}
+
+/** Point-in-polygon check for branch header triangles/trapezoids (P1-29). */
+export function pointInPoly(px: number, py: number, pts: [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i];
+    const [xj, yj] = pts[j];
+    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/** Index of the IF/CASE branch header triangle/trapezoid under `(px, py)`, or -1. */
+export function hitBranchHead(hit: Hit | null, px: number, py: number): number {
+  if (!hit || hit.t !== 'el' || !hit.branchHeads) return -1;
+  for (let i = 0; i < hit.branchHeads.length; i++) {
+    if (pointInPoly(px, py, hit.branchHeads[i])) return i;
+  }
+  return -1;
 }
 
 /** Nearest insertion gap to a point (for drag and drop). */

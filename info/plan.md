@@ -98,9 +98,9 @@ Open from this round:
 
 - [x] **P1-26 PWA.** `public/manifest.webmanifest` (name, icons 192/512 PNG, `display: standalone`), a small service worker that precaches the build (no runtime caching of other origins). Done when: Chrome "Install app" works and the app opens offline. Note: `pwaPlugin` in `vite.config.ts` emits `dist/sw.js` with exact asset chunk URLs.
 - [x] **P1-27 Context menu.** Done in 3.32.35-web.2. Long press / right click on an element opens a small sheet with edit, delete, copy, cut, paste, duplicate, disable, collapse (D-17 asks for a context sheet).
-- [ ] **P1-28 Multi-selection.** Shift+↑/↓ extends the selection to a contiguous range in one sequence; delete/cut/copy/move work on the range (desktop key bindings).
-- [ ] **P1-29 Branch head colours** (desktop 3.32-30): tap a branch triangle of IF/CASE to colour it; data model and file format already support it.
-- [ ] **P1-30 Transmute** (Ctrl+T): change element type where sensible (instruction ↔ call ↔ jump, while ↔ repeat, merge/split instructions).
+- [x] **P1-28 Multi-selection.** Shift+↑/↓ extends the selection to a contiguous range in one sequence; delete/cut/copy/move work on the range (desktop key bindings). Note: Shift+Click/Tap also selects a contiguous range.
+- [x] **P1-29 Branch head colours** (desktop 3.32-30): tap a branch triangle of IF/CASE to colour it; data model and file format already support it.
+- [x] **P1-30 Transmute** (Ctrl+T): change element type where sensible (instruction ↔ call ↔ jump, while ↔ repeat, merge/split instructions).
 - [x] **P1-31 Print** (Ctrl+P): done in 3.32.35-web.2.
 
 ## Phase 2 – Language and executor (specs follow before start)
