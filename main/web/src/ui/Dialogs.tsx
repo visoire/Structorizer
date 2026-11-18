@@ -9,6 +9,7 @@ import { actions } from './actions';
 import { APP_VERSION, STRUCTORIZER_VERSION, clearLocalData } from './exporters';
 import { Modal } from './ElementEditor';
 import { INSERT_KEYS, useMenus } from './MenuBar';
+import { FONT_IDS, fontStack, type FontId } from './fonts';
 
 const REPO_URL = 'https://github.com/visoire/Structorizer';
 
@@ -18,7 +19,7 @@ function PrefsDialog() {
   const p = usePrefs();
   const s = useStore();
   const t = translator(p.lang);
-  const [tab, setTab] = useState<'general' | 'view' | 'export' | 'parser' | 'data'>('general');
+  const [tab, setTab] = useState<'general' | 'fonts' | 'view' | 'export' | 'parser' | 'data'>('general');
   const [kw, setKw] = useState<Keywords>({ ...s.diagram.keywords });
   const close = () => s.setDialog(null);
   const Check = ({ k, label }: { k: 'showComments' | 'highlightVars' | 'cOperators' | 'switchTextComments' | 'commentsPlusText' | 'darkDiagram' | 'simplifiedToolbar' | 'involveSubroutines' | 'confirmDelete'; label: TKey }) => (
@@ -30,9 +31,9 @@ function PrefsDialog() {
   return (
     <Modal title={t('prefsDialog').replace(/\s*\.\.\.$/, '')} onClose={close} cancelLabel={t('close')} wide>
       <div className="tabs" role="tablist">
-        {(['general', 'view', 'export', 'parser', 'data'] as const).map((x) => (
+        {(['general', 'fonts', 'view', 'export', 'parser', 'data'] as const).map((x) => (
           <button key={x} type="button" role="tab" aria-selected={tab === x} onClick={() => setTab(x)}>
-            {t(x === 'general' ? 'prefsGeneral' : x === 'view' ? 'prefsView' : x === 'export' ? 'prefsExport' : x === 'parser' ? 'prefsParser' : 'prefsData')}
+            {t(x === 'general' ? 'prefsGeneral' : x === 'fonts' ? 'prefsFonts' : x === 'view' ? 'prefsView' : x === 'export' ? 'prefsExport' : x === 'parser' ? 'prefsParser' : 'prefsData')}
           </button>
         ))}
       </div>
@@ -52,6 +53,7 @@ function PrefsDialog() {
           <Check k="confirmDelete" label="confirmDelete" />
         </div>
       )}
+      {tab === 'fonts' && <FontsTab />}
       {tab === 'view' && (
         <div className="form-grid">
           <Check k="showComments" label="showComments" />
@@ -103,6 +105,39 @@ function PrefsDialog() {
   );
 }
 
+
+function FontsTab() {
+  const p = usePrefs();
+  const t = translator(p.lang);
+  const FontSelect = ({ value, custom, onFont, onCustom, label }: { value: FontId; custom: string; onFont: (f: FontId) => void; onCustom: (s: string) => void; label: TKey }) => (
+    <div className="form-grid">
+      <label className="field"><span>{t(label)}</span>
+        <select value={value} onChange={(e) => onFont(e.target.value as FontId)}>
+          {FONT_IDS.map((f) => <option key={f} value={f}>{t(('font.' + f) as TKey)}</option>)}
+        </select></label>
+      {value === 'custom' && (
+        <label className="field compact"><span>{t('customFont')}</span>
+          <input type="text" value={custom} placeholder="Segoe UI, Calibri, Comic Neue ..." spellCheck={false} onChange={(e) => onCustom(e.target.value)} /></label>
+      )}
+    </div>
+  );
+  return (
+    <div className="form-grid">
+      <FontSelect label="uiFont" value={p.uiFont} custom={p.customUiFont} onFont={(f) => p.set({ uiFont: f })} onCustom={(s) => p.set({ customUiFont: s })} />
+      <FontSelect label="diagramFont" value={p.diagramFont} custom={p.customDiagramFont} onFont={(f) => p.set({ diagramFont: f })} onCustom={(s) => p.set({ customDiagramFont: s })} />
+      <label className="field"><span>{t('fontSize')}: {p.diagramFontSize} px</span>
+        <input type="range" min={10} max={22} step={1} value={p.diagramFontSize} onChange={(e) => p.set({ diagramFontSize: +e.target.value })} /></label>
+      <div className="font-preview" style={{ fontFamily: fontStack(p.diagramFont, p.customDiagramFont), fontSize: p.diagramFontSize }}>
+        x {'←'} (a + b) * 2 &nbsp; OUTPUT "Ergebnis: ", x &nbsp; while (i {'≤'} 10)
+      </div>
+      <p className="hint">{t('customFontHint')}</p>
+      <h3>{t('exportLook')}</h3>
+      <label className="check"><input type="checkbox" checked={p.exportColors} onChange={() => p.toggle('exportColors')} /> {t('exportColors')}</label>
+      <label className="check"><input type="checkbox" checked={p.exportTransparent} onChange={() => p.toggle('exportTransparent')} /> {t('exportTransparent')}</label>
+      <p className="hint">{t('exportLookHint')}</p>
+    </div>
+  );
+}
 // ------------------------------------------------------------------ Find / Replace
 
 function FindDialog() {

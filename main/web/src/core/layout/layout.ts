@@ -3,7 +3,7 @@
 // Shapes and proportions follow lu.fisch.structorizer.elements.*.prepareDraw()/draw().
 import type { Diagram, Element, Hex, SeqRef } from '../model/types';
 import { slotsOf } from '../model/tree';
-import { HALF, LINE_H, P, ROOT_CORNER, baseline, type MeasureFn } from './measure';
+import { FONT_FAMILY, FONT_SIZE, HALF, LINE_H, P, ROOT_CORNER, baseline, type MeasureFn } from './measure';
 import { displaySpans, displayText, type Span } from './display';
 import { diagramVariables } from '../lang/analyze';
 
@@ -32,6 +32,8 @@ export interface Scene {
   items: Item[];
   hits: Hit[];
   gaps: Gap[];
+  /** Font the scene was measured with (screen and exports use the same). */
+  font: { family: string; size: number };
 }
 
 export interface LayoutOptions {
@@ -482,7 +484,7 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
     title.forEach((l, i) => text(boxed ? P : HALF, inclH + (boxed ? P : HALF) + i * LINE_H, disp(l), { bold: true }));
     placeSeq(d.children, { owner: 'root' }, pad, inclH + titleH, W - 2 * pad, body.h);
 
-    return { width: W + 1, height: H + 1, items, hits, gaps };
+    return { width: W + 1, height: H + 1, items, hits, gaps, font: { family: FONT_FAMILY, size: FONT_SIZE } };
   }
 
   return { layout, measureEl, measureSeq };

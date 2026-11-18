@@ -75,6 +75,13 @@ export const en = {
   aboutText: 'Structorizer Web is a free, open source (GPL-3.0) browser version of Structorizer by Bob Fisch, Kay Gürtzig and contributors. It reads and writes the .nsd files of Structorizer Desktop.',
   keysNote: 'Some keys (e.g. F11, F12, Ctrl+N) are reserved by the browser; use the menu instead.',
   insertBefore: 'Insert before the selection', elements: 'Elements',
+  grpInsert: 'Insert', grpEdit: 'Edit', grpView: 'View',
+  prefsFonts: 'Fonts', uiFont: 'Font of the user interface', diagramFont: 'Font of diagrams and exports', fontSize: 'Diagram font size',
+  customFont: 'Font name (installed on this device)', customFontHint: 'Only fonts installed on this device are used; nothing is downloaded.',
+  fontPreview: 'Preview', exportLook: 'Exported pictures', exportColors: 'Use element colours in pictures',
+  exportTransparent: 'Transparent background (PNG)', exportLookHint: 'Pictures use the diagram font, light colours and the view options above.',
+  'font.system': 'System font', 'font.arial': 'Arial / Helvetica', 'font.verdana': 'Verdana (easy to read)', 'font.serif': 'Serif (Georgia, Times)',
+  'font.mono': 'Monospace (Consolas, Menlo)', 'font.rounded': 'Rounded', 'font.custom': 'Other installed font ...',
   dropHere: 'Drop here',
 } as const;
 

@@ -9,6 +9,7 @@ import { sceneToEmf } from '../core/render/emf';
 import { buildPdf } from '../core/render/pdf';
 import type { Diagram } from '../core/model';
 import { usePrefs } from '../store/prefsStore';
+import { applyDiagramFont } from './fonts';
 
 declare const __APP_VERSION__: string;
 export const APP_VERSION: string = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '0.0.0';
@@ -19,6 +20,7 @@ let measureFn: MeasureFn | null = null;
 export const measure = (): MeasureFn => (measureFn ??= createCanvasMeasure());
 
 export function viewLayoutOptions(): LayoutOptions {
+  applyDiagramFont();
   const p = usePrefs.getState();
   return {
     cOperators: p.cOperators,
@@ -30,7 +32,17 @@ export function viewLayoutOptions(): LayoutOptions {
 
 /** Scene for exports: same view options as the screen, always the light theme. */
 export function exportScene(d: Diagram): Scene {
-  return createLayoutEngine(measure(), viewLayoutOptions()).layout(d);
+  const scene = createLayoutEngine(measure(), viewLayoutOptions()).layout(d);
+  return usePrefs.getState().exportColors ? scene : monochrome(scene);
+}
+
+/** Pictures without element colours (white boxes, black lines and text). */
+function monochrome(scene: Scene): Scene {
+  const keep = new Set(['#c0c0c0', '#d3d3d3', 'none']);
+  return {
+    ...scene,
+    items: scene.items.map((it) => ((it.t === 'rect' || it.t === 'poly') && it.fill && !keep.has(it.fill.toLowerCase()) && !it.fill.startsWith('url(') ? { ...it, fill: '#ffffff' } : it)),
+  };
 }
 
 const base = (d: Diagram) => suggestFileName(d).replace(/\.nsd$/, '');
@@ -160,7 +172,7 @@ export function clearLocalData(): void {
 
 // ------------------------------------------------------------------ pictures
 
-async function svgToCanvas(svg: string, w: number, h: number): Promise<HTMLCanvasElement> {
+async function svgToCanvas(svg: string, w: number, h: number, transparent = false): Promise<HTMLCanvasElement> {
   const img = new Image();
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
   try {
@@ -170,8 +182,10 @@ async function svgToCanvas(svg: string, w: number, h: number): Promise<HTMLCanva
     canvas.height = Math.ceil(h);
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas not available');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (!transparent) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     return canvas;
   } finally {
@@ -184,7 +198,7 @@ const toBlob = (c: HTMLCanvasElement, type = 'image/png', q?: number) =>
 
 export async function diagramPng(d: Diagram, scale = 2): Promise<Blob> {
   const scene = exportScene(d);
-  const canvas = await svgToCanvas(sceneToSvg(scene, { scale }), scene.width * scale, scene.height * scale);
+  const canvas = await svgToCanvas(sceneToSvg(scene, { scale }), scene.width * scale, scene.height * scale, usePrefs.getState().exportTransparent);
   return toBlob(canvas);
 }
 

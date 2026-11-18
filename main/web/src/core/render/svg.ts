@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Scene -> standalone SVG markup. Used for the screen and for SVG/PNG/PDF export, so all look identical.
-import { FONT_FAMILY, FONT_SIZE } from '../layout/measure';
+import { DEFAULT_FONT_FAMILY, DEFAULT_FONT_SIZE } from '../layout/measure';
 import type { Scene } from '../layout/layout';
 import type { SpanClass } from '../layout/display';
 
@@ -61,7 +61,7 @@ export function sceneToSvg(scene: Scene, opts: SvgOptions = {}): string {
   if (opts.standalone) out.push('<?xml version="1.0" encoding="UTF-8"?>');
   out.push(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${n(W * scale)}" height="${n(H * scale)}" viewBox="0 0 ${n(W)} ${n(H)}"` +
-    ` font-family="${esc(FONT_FAMILY)}" font-size="${FONT_SIZE}">`,
+    ` font-family="${esc(scene.font?.family ?? DEFAULT_FONT_FAMILY)}" font-size="${scene.font?.size ?? DEFAULT_FONT_SIZE}">`,
   );
   if (opts.title) out.push(`<title>${esc(opts.title)}</title>`);
   out.push(

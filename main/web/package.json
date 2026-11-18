@@ -1,13 +1,15 @@
 {
   "name": "structorizer-web",
   "private": true,
-  "version": "3.32.35-web.2",
+  "version": "3.32.35-web.3",
   "description": "Browser version of Structorizer, the Nassi-Shneiderman diagram editor. Runs fully client-side.",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:single": "tsc --noEmit && vite build --mode single",
+    "build:all": "npm run build && vite build --mode single",
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

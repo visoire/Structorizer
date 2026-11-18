@@ -11,6 +11,9 @@ import {
   pickFile, printDiagram, readFile, saveDiagram, savePrefsFile, type RecentFile,
 } from './exporters';
 
+declare const __SINGLE_FILE__: boolean;
+const IS_SINGLE = typeof __SINGLE_FILE__ === 'boolean' && __SINGLE_FILE__;
+
 const st = () => useStore.getState();
 const t = () => translator(usePrefs.getState().lang);
 const notify = (text: string, kind: 'info' | 'error' = 'info') => st().notify(text, kind);
@@ -193,7 +196,12 @@ export const actions = {
 
   // ---------------------------------------------------------------- Debug / Help
   planned: () => notify(t()('plannedNote')),
-  docs: (anchor = '') => window.open(`./docs/${anchor}`, '_blank', 'noopener'),
+  docs: (anchor = '') => {
+    // the single-file version has no docs folder next to it
+    const url = !IS_SINGLE ? `./docs/${anchor}`
+      : anchor === '#user-guide' ? 'https://help.structorizer.fisch.lu/' : 'https://github.com/visoire/Structorizer#readme';
+    window.open(url, '_blank', 'noopener');
+  },
   keys: () => st().setDialog('keys'),
   about: () => st().setDialog('about'),
 

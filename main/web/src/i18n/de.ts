@@ -69,5 +69,12 @@ export const de: Dict = {
   aboutText: 'Structorizer Web ist eine freie, quelloffene (GPL-3.0) Browserversion von Structorizer von Bob Fisch, Kay Gürtzig und Mitwirkenden. Sie liest und schreibt die .nsd-Dateien von Structorizer Desktop.',
   keysNote: 'Manche Tasten (z. B. F11, F12, Strg+N) belegt der Browser selbst; dann bitte das Menü nutzen.',
   insertBefore: 'Vor der Auswahl einfügen', elements: 'Elemente',
+  grpInsert: 'Einfügen', grpEdit: 'Bearbeiten', grpView: 'Ansicht',
+  prefsFonts: 'Schriften', uiFont: 'Schrift der Oberfläche', diagramFont: 'Schrift der Diagramme und Exporte', fontSize: 'Schriftgröße im Diagramm',
+  customFont: 'Schriftname (auf diesem Gerät installiert)', customFontHint: 'Es werden nur auf diesem Gerät installierte Schriften verwendet; nichts wird heruntergeladen.',
+  fontPreview: 'Vorschau', exportLook: 'Exportierte Bilder', exportColors: 'Elementfarben in Bildern verwenden',
+  exportTransparent: 'Transparenter Hintergrund (PNG)', exportLookHint: 'Bilder verwenden die Diagrammschrift, helle Farben und die Ansichtsoptionen oben.',
+  'font.system': 'Systemschrift', 'font.arial': 'Arial / Helvetica', 'font.verdana': 'Verdana (gut lesbar)', 'font.serif': 'Serifenschrift (Georgia, Times)',
+  'font.mono': 'Festbreite (Consolas, Menlo)', 'font.rounded': 'Abgerundet', 'font.custom': 'Andere installierte Schrift ...',
   dropHere: 'Hier ablegen',
 };

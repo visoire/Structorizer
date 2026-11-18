@@ -1,0 +1,19 @@
+# Apache (see HOSTING.md). mod_deflate and mod_headers are optional.
+AddType text/javascript .js
+AddType image/svg+xml .svg
+AddType application/xml .nsd
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript image/svg+xml
+</IfModule>
+
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "no-referrer"
+  <FilesMatch "\.(js|css)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

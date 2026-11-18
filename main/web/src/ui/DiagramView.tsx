@@ -44,7 +44,7 @@ export function DiagramView() {
   const zoom = useStore((s) => s.zoom);
   const prefs = usePrefs();
   const t = translator(prefs.lang);
-  const optKey = [prefs.cOperators, prefs.highlightVars, prefs.showComments, prefs.switchTextComments, prefs.commentsPlusText].join();
+  const optKey = [prefs.cOperators, prefs.highlightVars, prefs.showComments, prefs.switchTextComments, prefs.commentsPlusText, prefs.diagramFont, prefs.customDiagramFont, prefs.diagramFontSize].join();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const engine = useMemo(() => createLayoutEngine(measure(), viewLayoutOptions()), [optKey]);
   const scene: Scene = useMemo(() => engine.layout(diagram), [engine, diagram]);

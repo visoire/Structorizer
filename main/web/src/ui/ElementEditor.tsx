@@ -20,7 +20,7 @@ export function Modal({ title, onClose, onOk, children, okLabel, cancelLabel, wi
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
-    const first = ref.current?.querySelector<HTMLElement>('textarea, input, select, button');
+    const first = ref.current?.querySelector<HTMLElement>('.modal-body textarea, .modal-body input, .modal-body select, .modal-body button, .modal-actions .primary');
     first?.focus();
     return () => prev?.focus?.();
   }, []);
@@ -32,7 +32,12 @@ export function Modal({ title, onClose, onOk, children, okLabel, cancelLabel, wi
           else if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.metaKey) && onOk) { e.preventDefault(); e.stopPropagation(); onOk(); }
           e.stopPropagation();
         }}>
-        <h2>{title}</h2>
+        <div className="modal-head">
+          <h2>{title}</h2>
+          <button type="button" className="icon-btn close" aria-label={cancelLabel} title={cancelLabel} onClick={onClose}>
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+          </button>
+        </div>
         <div className="modal-body">{children}</div>
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onClose}>{cancelLabel}</button>

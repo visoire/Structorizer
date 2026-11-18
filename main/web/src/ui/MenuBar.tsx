@@ -246,7 +246,7 @@ export function MenuBar() {
 
   useEffect(() => {
     if (open === null && !sheet) return;
-    const onDown = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) close(); };
+    const onDown = (e: PointerEvent) => { if (!(e.target instanceof Node) || !ref.current?.contains(e.target)) close(); };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
     window.addEventListener('pointerdown', onDown);
     window.addEventListener('keydown', onKey);

@@ -11,6 +11,7 @@ import { DiagramView } from './DiagramView';
 import { DiagramEditor, ElementEditor } from './ElementEditor';
 import { loadSession, saveSession } from './exporters';
 import { Icon, KindIcon } from './icons';
+import { applyUiFont } from './fonts';
 import { MenuBar } from './MenuBar';
 import { SidePanel } from './SidePanel';
 
@@ -52,6 +53,7 @@ export function App() {
     return () => mq.removeEventListener('change', apply);
   }, [p.theme]);
   useEffect(() => { document.documentElement.lang = p.lang; }, [p.lang]);
+  useEffect(() => { applyUiFont(); }, [p.uiFont, p.customUiFont]);
 
   // ---------- restore + autosave of all open diagrams (local only)
   useEffect(() => {
@@ -171,14 +173,14 @@ export function App() {
       </header>
 
       <div className="toolbar" role="toolbar" aria-label={t('elements')}>
-        <div className="tool-group">
+        <div className="tool-group"><div className="tool-row">
           {KINDS.map((k) => (
             <ToolButton key={k} label={t(('kind.' + k) as TKey)} onClick={(e) => actions.insert(k, e.shiftKey)}><KindIcon kind={k} /></ToolButton>
           ))}
           <ToolButton label={t('insertBefore')} pressed={s.insertBefore} onClick={() => s.setInsertBefore(!s.insertBefore)}><Icon name="before" /></ToolButton>
-        </div>
+        </div><span className="group-label">{t('grpInsert')}</span></div>
         {!p.simplifiedToolbar && (
-          <div className="tool-group">
+          <div className="tool-group"><div className="tool-row">
             <ToolButton label={t('edit')} onClick={actions.editSelected}><Icon name="edit" /></ToolButton>
             <ToolButton label={t('delete')} disabled={!hasEl} onClick={actions.remove}><Icon name="delete" /></ToolButton>
             <ToolButton label={t('cut')} disabled={!hasEl} onClick={actions.cut}><Icon name="cut" /></ToolButton>
@@ -189,14 +191,14 @@ export function App() {
             <ToolButton label={t('disable')} disabled={!hasEl} pressed={selEl?.disabled} onClick={actions.disable}><Icon name="disable" /></ToolButton>
             <ToolButton label={selEl?.collapsed ? t('expand') : t('collapse')} disabled={!selEl || !STRUCTURED_KINDS.has(selEl.kind)}
               pressed={!!selEl?.collapsed} onClick={actions.toggleCollapse}><Icon name="collapse" /></ToolButton>
-          </div>
+          </div><span className="group-label">{t('grpEdit')}</span></div>
         )}
-        <div className="tool-group push">
+        <div className="tool-group push"><div className="tool-row">
           <ToolButton label={t('zoomOut')} onClick={actions.zoomOut}><Icon name="zoomOut" /></ToolButton>
           <button type="button" className="zoom-label" title={t('zoomReset')} onClick={actions.zoomReset}>{Math.round(s.zoom * 100)}%</button>
           <ToolButton label={t('zoomIn')} onClick={actions.zoomIn}><Icon name="zoomIn" /></ToolButton>
           <ToolButton label={t('zoomFit')} onClick={actions.zoomFit}><Icon name="zoomFit" /></ToolButton>
-        </div>
+        </div><span className="group-label">{t('grpView')}</span></div>
       </div>
 
       <main className="workspace">
@@ -206,7 +208,7 @@ export function App() {
 
       <footer className="statusbar">
         <span>{sel ? (selEl ? t(('kind.' + selEl.kind) as TKey) : sel.t === 'root' ? t('diagramProps').replace(/\s*\.\.\.$/, '') : '∅') : t('selectHint')}</span>
-        <span className="status-right">{storageOk ? t('autosaved') : t('unsaved')}</span>
+        <span className={'status-right' + (storageOk ? '' : ' warn')}>{storageOk ? t('autosaved') : t('unsaved')}</span>
       </footer>
 
       <ElementEditor />

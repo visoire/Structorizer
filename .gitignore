@@ -1,6 +1,8 @@
 # dependencies and build output
 node_modules/
 main/web/dist/
+main/web/dist-single/
+release/
 main/web/tests/out/
 main/mcp/dist/
 
@@ -9,6 +11,13 @@ main/web/public/docs/*.pdf
 
 # original desktop sources and private notes (not part of this repository)
 sourcecode/
+
+# local reference material and stray exports in the repository root
+/gridcraft-*/
+/gridcraft-*.zip
+/wordcraft-*/
+/wordcraft-*.zip
+/*.pdf
 info/grok.txt
 
 # editors / OS

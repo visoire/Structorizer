@@ -30,7 +30,17 @@ export interface Prefs {
   defaultKeywords: Keywords;
   simplifiedToolbar: boolean;
   confirmDelete: boolean;
+  // fonts (local only) and export look
+  uiFont: FontId;
+  customUiFont: string;
+  diagramFont: FontId;
+  customDiagramFont: string;
+  diagramFontSize: number;
+  exportColors: boolean;
+  exportTransparent: boolean;
 }
+
+type FontId = 'system' | 'arial' | 'verdana' | 'serif' | 'mono' | 'rounded' | 'custom';
 
 const KEY = 'structorizer-web:prefs';
 
@@ -51,6 +61,13 @@ export const DEFAULT_PREFS: Prefs = {
   defaultKeywords: { ...DEFAULT_KEYWORDS },
   simplifiedToolbar: false,
   confirmDelete: false,
+  uiFont: 'system',
+  customUiFont: '',
+  diagramFont: 'system',
+  customDiagramFont: '',
+  diagramFontSize: 14,
+  exportColors: true,
+  exportTransparent: false,
 };
 
 function load(): Prefs {

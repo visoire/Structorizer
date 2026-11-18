@@ -2,7 +2,7 @@
 // Scene -> Enhanced Metafile (EMF, [MS-EMF]) with vector shapes and Unicode text.
 // Desktop: File > Export > Picture > EMF. Opens in Word, PowerPoint, LibreOffice, Inkscape.
 import type { Scene } from '../layout/layout';
-import { FONT_SIZE, type MeasureFn } from '../layout/measure';
+import { DEFAULT_FONT_SIZE, type MeasureFn } from '../layout/measure';
 import { PALETTES } from './svg';
 
 class Buf {
@@ -32,8 +32,10 @@ const colorref = (hex: string) => {
   return parseInt(v.slice(0, 2), 16) | (parseInt(v.slice(2, 4), 16) << 8) | (parseInt(v.slice(4, 6), 16) << 16);
 };
 
-export function sceneToEmf(scene: Scene, measure: MeasureFn, fontFace = 'Arial'): Uint8Array {
+export function sceneToEmf(scene: Scene, measure: MeasureFn, face?: string): Uint8Array {
   const pal = PALETTES.light;
+  const FONT_SIZE = scene.font?.size ?? DEFAULT_FONT_SIZE;
+  const fontFace = face ?? emfFace(scene.font?.family);
   const body = new Buf();
   let records = 0;
   let handles = 1;
@@ -189,4 +191,11 @@ export function sceneToEmf(scene: Scene, measure: MeasureFn, fontFace = 'Arial')
   head.append(body);
   head.patchU32(sizeAt, head.length);
   return head.toUint8();
+}
+
+/** First concrete font name of a CSS font-family list (EMF needs one face name). */
+export function emfFace(family: string | undefined): string {
+  const generic: Record<string, string> = { 'system-ui': 'Segoe UI', '-apple-system': 'Segoe UI', 'sans-serif': 'Arial', serif: 'Times New Roman', monospace: 'Consolas', 'ui-monospace': 'Consolas', 'ui-rounded': 'Arial Rounded MT Bold' };
+  const first = (family ?? 'Arial').split(',')[0].trim().replace(/^["']|["']$/g, '');
+  return generic[first] ?? (first || 'Arial');
 }

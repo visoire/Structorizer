@@ -10,6 +10,47 @@ build number. Desktop issue numbers refer to
 
 ## [Unreleased]
 
+## [3.32.35-web.3] – 2026-11-18 (corresponds to Structorizer 3.32-35)
+
+New look in the style of the Craft apps (GridCraft, WordCraft), a single-file version,
+font settings and a release script.
+
+### Changed
+- **Design** follows the Craft design tokens: neutral grey title bar, ribbon and desk,
+  flat icon buttons with hover and pressed states, checked tools with a soft accent and an
+  accent underline, 4 px widget corners, 8 px menus, 10 px dialogs with soft popup shadows,
+  13 px UI font. Structorizer has its own app colour (teal), like GridCraft green and
+  WordCraft blue. Light and dark palettes rebuilt on the same tokens.
+- **Toolbar** as ribbon groups with labels (Insert, Edit, View).
+- **Menus**: compact desktop rows, dim shortcuts, rotating submenu arrows, open animation.
+- **Dialogs**: header with close button, scrollable body, footer bar for the buttons,
+  open animation, tabs with an animated underline.
+- **Controls**: new buttons (secondary, primary, danger, small), selects with a custom arrow,
+  focus line on inputs, rounded colour swatches, status dot in the status bar, toasts as
+  cards with a colour edge, Arranger index with an accent bar for the active diagram and
+  close buttons that appear on hover.
+- Larger targets on touch screens (`pointer: coarse`); motion is reduced when the system asks for it.
+
+### Added
+- **Fonts** (Preferences › Fonts): font of the user interface and font of diagrams and
+  exports, each from system font, Arial/Helvetica, Verdana, serif, monospace, rounded or any
+  other installed font by name; diagram font size 10 to 22 px with a live preview. Only
+  fonts on the device are used, nothing is downloaded.
+- **Export look**: element colours on/off for pictures, transparent PNG background. SVG,
+  PNG, PDF and EMF use the diagram font (EMF picks the first installed face).
+- **Single-file version** (`npm run build:single`): one self-contained `index.html`
+  (about 400 KB) with inlined script and styles; the Content Security Policy allows exactly
+  that script by its SHA-256 hash, so the single file is just as locked down.
+- **Release packages** like the Craft web packages: `structorizer-web-<v>.zip` (with
+  `.htaccess`, `_headers`, `HOSTING.md`), `structorizer-single-<v>.zip`,
+  `structorizer-<v>.html`, `structorizer-mcp-<v>.zip`, `SHA256SUMS.txt`.
+- **`scripts/release.sh`**: installs, tests, builds both web versions and the MCP server,
+  packages everything and with `--publish` pushes, tags and creates the GitHub release.
+  Packaging itself is `scripts/package.mjs` (Node, no dependencies).
+
+### Fixed
+- Menus no longer throw when a pointer event comes from a non-element target.
+
 ## [3.32.35-web.2] – 2026-11-18 (corresponds to Structorizer 3.32-35)
 
 Desktop-like menus and functions, side panel with Code preview and Arranger index, code

@@ -139,7 +139,7 @@ export function SidePanel() {
       <div className="panel-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={p.panelTab === 'index'} onClick={() => p.set({ panelTab: 'index' })}>{t('arrangerIndex')}</button>
         <button type="button" role="tab" aria-selected={p.panelTab === 'code'} onClick={() => p.set({ panelTab: 'code' })}>{t('codePreview')}</button>
-        <button type="button" className="panel-x" aria-label={t('closePanel')} title={t('closePanel')} onClick={() => p.set({ panelOpen: false })}>×</button>
+        <button type="button" className="icon-btn close" aria-label={t('closePanel')} title={t('closePanel')} onClick={() => p.set({ panelOpen: false })}><svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg></button>
       </div>
       <div className="panel-body">
         {p.panelTab === 'code' ? <CodePreview /> : <ArrangerIndex />}

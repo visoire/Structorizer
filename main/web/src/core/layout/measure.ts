@@ -3,10 +3,22 @@
 
 export const P = 20;
 export const HALF = P / 2;
-export const FONT_SIZE = 14;
-export const LINE_H = Math.round(FONT_SIZE * 1.3);
 export const ROOT_CORNER = 15;
-export const FONT_FAMILY = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+export const DEFAULT_FONT_FAMILY = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+export const DEFAULT_FONT_SIZE = 14;
+
+// The diagram font is a preference (screen and every export use it). ES module live
+// bindings: modules importing these names see the new values after setDiagramFont().
+export let FONT_SIZE = DEFAULT_FONT_SIZE;
+export let LINE_H = Math.round(FONT_SIZE * 1.3);
+export let FONT_FAMILY = DEFAULT_FONT_FAMILY;
+
+/** Change the diagram font (family as CSS font-family list, size in px, 10..24). */
+export function setDiagramFont(family: string, size: number): void {
+  FONT_FAMILY = family.trim() || DEFAULT_FONT_FAMILY;
+  FONT_SIZE = Math.min(24, Math.max(10, Math.round(size) || DEFAULT_FONT_SIZE));
+  LINE_H = Math.round(FONT_SIZE * 1.3);
+}
 
 export type MeasureFn = (text: string, bold?: boolean) => number;
 
@@ -20,7 +32,7 @@ export function createCanvasMeasure(): MeasureFn {
   if (!ctx) return fakeMeasure;
   const cache = new Map<string, number>();
   return (s, bold) => {
-    const key = (bold ? 'b' : 'n') + s;
+    const key = `${FONT_SIZE}|${FONT_FAMILY}|${bold ? 'b' : 'n'}|${s}`;
     let w = cache.get(key);
     if (w === undefined) {
       ctx.font = `${bold ? 'bold ' : ''}${FONT_SIZE}px ${FONT_FAMILY}`;
