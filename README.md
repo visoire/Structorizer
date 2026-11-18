@@ -15,7 +15,7 @@ current browser, including Safari on iPad (desktop issue
 - **Compatible**: reads and writes the `.nsd` files of Structorizer Desktop 3.32.
 
 Version **3.32-35** (web build `3.32.35-web.8`) · **[Live Web App (GitHub Pages)](https://visoire.github.io/Structorizer/)** · **[Single-File Edition](https://visoire.github.io/Structorizer/structorizer-single.html)** · [Documentation](https://visoire.github.io/Structorizer/docs/) · [Changelog](CHANGELOG.md) ·
-[Roadmap](info/04-roadmap.md)
+[Roadmap](ROADMAP.md)
 
 <p align="center">
   <img src="docs/images/showcase.png" alt="Structorizer Web in light mode showing the CoffeeProtocol easter egg diagram with live Python Code preview" width="860">
@@ -113,7 +113,7 @@ Tools (`21` tools, all annotated, plus MCP resources & prompts): `list-commands`
 | `scripts` | release and packaging scripts |
 | `docs/` | source analysis, file format, language & executor specs, layout spec, decisions, iPadOS guide |
 | `assets/` | application icons and icon source (`original.psd`, `hicolor`) |
-| `info/04-roadmap.md` | open roadmap items |
+| `ROADMAP.md` | open roadmap items (compared with Structorizer Desktop 3.32-35) |
 
 ## Credits
 

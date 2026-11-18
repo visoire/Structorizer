@@ -14,12 +14,6 @@ sourcecode/
 
 # stray exports and private notes in the repository
 /*.pdf
-info/grok.txt
-info/00-AGENT-PROMPT.md
-info/01-data-model.md
-info/02-project-scaffold.md
-info/03-diagram-renderer.md
-info/plan.md
 
 # editors / OS
 .vscode/
