@@ -2,6 +2,7 @@
 // Interactive diagram: tap selects, double tap edits, drag (mouse) or long press (touch) moves, pinch zooms.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createLayoutEngine, hitBranchHead, hitTest, nearestGap, type Gap, type Hit, type Scene } from '../core/layout';
+import { analyseDiagram, parseSignature } from '../core/lang';
 import { DEFAULT_COLORS, findById, type ElementKind } from '../core/model';
 import { isInside, sameRef } from '../core/model/tree';
 import { sceneToSvg } from '../core/render/svg';
@@ -47,6 +48,8 @@ function sameSelection(a: Selection, b: Selection): boolean {
 
 export function DiagramView() {
   const diagram = useStore((s) => s.diagram);
+  const docs = useStore((s) => s.docs);
+  const viewMode = useStore((s) => s.viewMode);
   const selection = useStore((s) => s.selection);
   const zoom = useStore((s) => s.zoom);
   const prefs = usePrefs();
@@ -55,6 +58,17 @@ export function DiagramView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const engine = useMemo(() => createLayoutEngine(measure(), viewLayoutOptions()), [optKey]);
   const scene: Scene = useMemo(() => engine.layout(diagram), [engine, diagram]);
+  const pool = useMemo(() => [diagram, ...docs.map((d) => d.diagram)], [diagram, docs]);
+  const findingsByEl = useMemo(() => {
+    const map = new Map<string, string[]>();
+    if (!prefs.analyserWarnings) return map;
+    for (const f of analyseDiagram(diagram, pool)) {
+      const list = map.get(f.elementId) ?? [];
+      list.push(`[${f.code}] ${f.message}`);
+      map.set(f.elementId, list);
+    }
+    return map;
+  }, [prefs.analyserWarnings, diagram, pool]);
   const [sysDark, setSysDark] = useState(() => resolvedTheme('system') === 'dark');
   useEffect(() => {
     const mq = matchMedia('(prefers-color-scheme: dark)');
@@ -340,6 +354,15 @@ export function DiagramView() {
           <line key={'bp-' + h.id} x1={h.x + 1} y1={h.y + 2} x2={h.x + h.w - 1} y2={h.y + 2} className="bp-bar" />
         ) : null
       ))}
+      {elHitsAll.map((h) => {
+        const msgs = findingsByEl.get(h.id);
+        if (!msgs || msgs.length === 0) return null;
+        return (
+          <polygon key={'warn-' + h.id} points={`${h.x + 2},${h.y + 2} ${h.x + 13},${h.y + 2} ${h.x + 2},${h.y + 13}`} className="warn-tri">
+            <title>{msgs.join('\n')}</title>
+          </polygon>
+        );
+      })}
       {activeBranchPoly && (
         <polygon points={activeBranchPoly.map(([x, y]) => `${x},${y}`).join(' ')} className="sel-fill sel-outline" />
       )}
@@ -367,6 +390,10 @@ export function DiagramView() {
       top: Math.max(...ys) * zoom + 6,
     };
   }, [activeBranchPoly, zoom]);
+
+  if (viewMode === 'arranger') {
+    return <ArrangerBoard engine={engine} dark={dark} />;
+  }
 
   return (
     <div className="diagram-scroll" ref={scrollRef}
@@ -465,6 +492,87 @@ function QuickDish({ point }: { point: { x: number; y: number } }) {
           <button type="button" className="tool" title={t('delete')} aria-label={t('delete')} disabled={!hasEl}
             onClick={() => { close(); actions.remove(); }}><Icon name="delete" /></button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Interactive 2D Arranger Board (Phase 3b):
+ * Displays all open diagrams as movable, pinnable cards on a free-form surface with .arrz/.arr export.
+ */
+function ArrangerBoard({ engine, dark }: { engine: ReturnType<typeof createLayoutEngine>; dark: boolean }) {
+  const s = useStore();
+  const docs = s.allDocs();
+  const dragRef = useRef<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
+
+  return (
+    <div
+      className="arranger-board-wrap"
+      onPointerMove={(e) => {
+        const dr = dragRef.current;
+        if (!dr) return;
+        s.moveDocCard(dr.id, dr.origX + (e.clientX - dr.startX), dr.origY + (e.clientY - dr.startY));
+      }}
+      onPointerUp={() => { dragRef.current = null; }}
+      onPointerCancel={() => { dragRef.current = null; }}
+    >
+      <div className="arranger-board-toolbar">
+        <strong>Arranger Surface ({docs.length})</strong>
+        <button type="button" className="btn small" onClick={actions.newDiagram}>+ New Diagram</button>
+        <button type="button" className="btn small" onClick={() => void actions.open()}>Open (.nsd / .arrz)</button>
+        <button type="button" className="btn small" onClick={s.autoLayoutDocs}>Auto-Layout Grid</button>
+        <button type="button" className="btn small" onClick={actions.exportArrz}>Export .arrz</button>
+        <button type="button" className="btn small" onClick={actions.exportArr}>Export .arr</button>
+        <button type="button" className="btn small primary" onClick={() => s.setViewMode('editor')}>Back to Editor</button>
+      </div>
+      <div className="arranger-board-canvas">
+        {docs.map((doc) => {
+          const sig = parseSignature(doc.diagram);
+          const sc = engine.layout(doc.diagram);
+          const scale = Math.min(0.75, Math.max(0.35, 260 / Math.max(sc.width, 1)));
+          const svg = sceneToSvg(sc, { scale, theme: dark ? 'dark' : 'light' });
+          const x = doc.x ?? 32;
+          const y = doc.y ?? 32;
+          return (
+            <div
+              key={doc.id}
+              className={'arr-card' + (doc.active ? ' active' : '') + (doc.pinned ? ' pinned' : '')}
+              style={{ left: x, top: y }}
+              onClick={() => s.switchDoc(doc.id)}
+              onDoubleClick={() => { s.switchDoc(doc.id); s.setViewMode('editor'); }}
+            >
+              <div
+                className="arr-card-head"
+                onPointerDown={(e) => {
+                  if (doc.pinned) return;
+                  e.stopPropagation();
+                  dragRef.current = { id: doc.id, startX: e.clientX, startY: e.clientY, origX: x, origY: y };
+                }}
+              >
+                <span className={'arr-icon ' + doc.diagram.diagramType} aria-hidden="true" />
+                <span className="arr-card-title">{sig.name}{doc.dirty ? ' •' : ''}</span>
+                <button
+                  type="button"
+                  className="btn small"
+                  title={doc.pinned ? 'Unpin diagram' : 'Pin diagram position'}
+                  onClick={(e) => { e.stopPropagation(); s.togglePinDoc(doc.id); }}
+                >
+                  {doc.pinned ? 'Pinned' : 'Pin'}
+                </button>
+                <button
+                  type="button"
+                  className="btn small"
+                  title="Edit in main view"
+                  onClick={(e) => { e.stopPropagation(); s.switchDoc(doc.id); s.setViewMode('editor'); }}
+                >
+                  Edit
+                </button>
+              </div>
+              <div className="arr-card-body" dangerouslySetInnerHTML={{ __html: svg }} />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

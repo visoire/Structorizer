@@ -1,0 +1,16 @@
+{
+  "appId": "io.github.visoire.structorizer",
+  "appName": "Structorizer",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "iosScheme": "capacitor",
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "never",
+    "preferredContentMode": "desktop",
+    "scrollEnabled": false,
+    "backgroundColor": "#1e1f22"
+  }
+}

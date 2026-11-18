@@ -2,7 +2,7 @@
 // Right-hand tabbed pane like Structorizer Desktop 3.32: Arranger index and Code preview.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { generateCode, LANGUAGES, type LangId } from '../core/gen/generators';
-import { parseSignature } from '../core/lang/analyze';
+import { analyseDiagram, parseSignature } from '../core/lang';
 import { useTranslator } from '../i18n';
 import { useStore } from '../store/diagramStore';
 import { usePrefs } from '../store/prefsStore';
@@ -70,9 +70,14 @@ function CodePreview() {
 
 function ArrangerIndex() {
   const s = useStore();
-  const lang = usePrefs((p) => p.lang);
-  const t = useTranslator(lang);
+  const p = usePrefs();
+  const t = useTranslator(p.lang);
   const docs = s.allDocs();
+  const pool = useMemo(() => docs.map((d) => d.diagram), [docs]);
+  const findings = useMemo(
+    () => (p.analyserWarnings ? analyseDiagram(s.diagram, pool) : []),
+    [p.analyserWarnings, s.diagram, pool],
+  );
   const groups: { label: string; type: 'program' | 'sub' | 'includable' }[] = [
     { label: t('mainPrograms'), type: 'program' },
     { label: t('subroutines'), type: 'sub' },
@@ -83,6 +88,10 @@ function ArrangerIndex() {
       <div className="panel-tools">
         <button type="button" className="btn small" onClick={actions.newDiagram}>+ {t('newDiagram')}</button>
         <button type="button" className="btn small" onClick={() => void actions.open()}>{t('open')}</button>
+        <button type="button" className="btn small" onClick={actions.toggleArrangerBoard}>
+          {s.viewMode === 'arranger' ? 'Editor' : 'Board'}
+        </button>
+        <button type="button" className="btn small" onClick={actions.exportArrz} title="Export portable .arrz archive">.arrz</button>
       </div>
       {groups.map((g) => {
         const list = docs.filter((d) => d.diagram.diagramType === g.type)
@@ -116,6 +125,32 @@ function ArrangerIndex() {
           </section>
         );
       })}
+      {p.analyserWarnings && (
+        <section className="arr-group analyser-section">
+          <h3>Analyser ({findings.length})</h3>
+          {findings.length === 0 ? (
+            <p className="hint small">No static analysis issues detected.</p>
+          ) : (
+            <ul className="analyser-list">
+              {findings.map((f, i) => (
+                <li key={`${f.elementId}-${f.code}-${i}`}>
+                  <button
+                    type="button"
+                    className={`analyser-item ${f.severity}`}
+                    onClick={() => {
+                      s.setViewMode('editor');
+                      s.select(f.elementId === s.diagram.id ? { t: 'root' } : { t: 'el', id: f.elementId });
+                    }}
+                  >
+                    <span className="analyser-code">{f.code}</span>
+                    <span className="analyser-msg">{f.message}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </div>
   );
 }

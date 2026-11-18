@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MCP server (stdio) for Structorizer diagrams, modelled on the Craft apps' MCP servers.
+// MCP server (stdio and Streamable HTTP) for Structorizer diagrams, modelled on the Craft apps' MCP servers.
+import http from 'node:http';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
+import { createExecState, executeDiagram } from '../../web/src/core/exec/executor';
 import { generateCode, LANGUAGES, type LangId } from '../../web/src/core/gen/generators';
-import { diagramVariables, parseSignature } from '../../web/src/core/lang/analyze';
+import { formatArr, readArrz, writeArrz } from '../../web/src/core/io/arranger';
+import { analyseDiagram, diagramVariables, parseSignature } from '../../web/src/core/lang';
 import { createLayoutEngine } from '../../web/src/core/layout';
 import { walk, type Diagram, type DiagramType, type Element } from '../../web/src/core/model';
 import { sceneToEmf } from '../../web/src/core/render/emf';
 import { sceneToSvg } from '../../web/src/core/render/svg';
 import {
   approxMeasure, buildDiagram, buildElement, elementAt, findInDiagram, insertAt, KINDS,
-  loadWorkspacePool, moveTo, normalizeColor, outline, removeById, replaceInDiagram,
+  loadWorkspacePool, moveTo, normalizeColor, outline, pathMap, removeById, replaceInDiagram,
   setCollapsedAt, toJson, toPosition, transmuteElementAt, updateElement, updateHeader,
   validateDiagram, VERSION, Workspace,
   type ElementInput, type PositionInput,
@@ -119,7 +123,7 @@ function applyBatchOp(d: Diagram, op: z.infer<typeof batchOpSchema>): Diagram {
   }
 }
 
-export async function runMcpServer(ws: Workspace): Promise<void> {
+export function createStructorizerMcpServer(ws: Workspace): McpServer {
   const server = new McpServer({ name: 'structorizer', title: 'Structorizer', version: VERSION });
   const catalog: { name: string; title: string; readOnly: boolean; description: string }[] = [];
   const toolCfg = <C extends { title: string; description: string; inputSchema: z.ZodRawShape; annotations: ReturnType<typeof ro> }>(
@@ -224,6 +228,65 @@ export async function runMcpServer(ws: Workspace): Promise<void> {
       const d = await ws.load(path);
       const pool = await loadWorkspacePool(ws, path);
       return text(JSON.stringify(validateDiagram(d, pool), null, 1));
+    } catch (e) { return fail(e); }
+  });
+
+  server.registerTool('analyse-diagram', toolCfg('analyse-diagram', {
+    title: 'Analyse diagram (static analyser A01-A09)',
+    description: 'Runs full static analysis (A01 empty text, A02 uninitialized variables, A03 loop counter modification, A04 endless loops, A05 constant reassignment, A06 unparseable FOR, A07 empty branches/missing CASE discriminator, A08 missing function return, A09 missing subroutines/includables).',
+    inputSchema: { path: z.string() },
+    annotations: ro('Analyse diagram'),
+  }), async ({ path }) => {
+    try {
+      const d = await ws.load(path);
+      const pool = [d, ...(await loadWorkspacePool(ws, path))];
+      const idToPath = new Map<string, string>();
+      idToPath.set(d.id, 'root');
+      for (const [p, el] of pathMap(d)) idToPath.set(el.id, p);
+      const findings = analyseDiagram(d, pool).map((f) => ({
+        code: f.code,
+        severity: f.severity,
+        path: idToPath.get(f.elementId) ?? 'root',
+        message: f.message,
+      }));
+      return text(JSON.stringify({ count: findings.length, findings }, null, 1));
+    } catch (e) { return fail(e); }
+  });
+
+  server.registerTool('execute-diagram', toolCfg('execute-diagram', {
+    title: 'Execute diagram',
+    description: 'Executes a Structorizer diagram headlessly with the step interpreter and Turtleizer, resolving workspace subroutines and includables automatically.',
+    inputSchema: {
+      path: z.string(),
+      inputs: z.array(z.union([z.string(), z.number(), z.boolean()])).optional().describe('values fed to INPUT statements in order'),
+      args: z.array(z.any()).optional().describe('arguments passed when executing a subroutine diagram'),
+      maxSteps: z.number().int().min(1).max(200000).optional().describe('step limit, default 20000'),
+    },
+    annotations: ro('Execute diagram'),
+  }), async ({ path, inputs, args, maxSteps }) => {
+    try {
+      const d = await ws.load(path);
+      const pool = [d, ...(await loadWorkspacePool(ws, path))];
+      const state = createExecState();
+      const gen = executeDiagram(d, {
+        state,
+        pool,
+        inputs: (inputs ?? []).map(String),
+        args: args ?? [],
+        maxSteps: maxSteps ?? 20000,
+      });
+      let step = gen.next();
+      while (!step.done) step = gen.next();
+      const res = step.value;
+      const variables: Record<string, unknown> = {};
+      for (const [k, v] of state.frames[0]?.vars ?? []) variables[k] = v;
+      return text(JSON.stringify({
+        outputs: res.outputs,
+        returnValue: res.returnValue ?? null,
+        variables,
+        coveredElements: res.covered.size,
+        turtleSegments: res.turtle.segments.length,
+      }, null, 1));
     } catch (e) { return fail(e); }
   });
 
@@ -493,6 +556,60 @@ export async function runMcpServer(ws: Workspace): Promise<void> {
         return text(returnSvg && svg ? `${msg}\n\n${svg}` : msg);
       } catch (e) { return fail(e); }
     });
+
+    server.registerTool('pack-arrz', toolCfg('pack-arrz', {
+      title: 'Pack .arrz arrangement archive',
+      description: 'Packs multiple .nsd diagrams into a desktop-compatible .arrz archive (with .arr coordinates).',
+      inputSchema: {
+        output: z.string().describe('target .arrz path, e.g. "demo/arrangement.arrz"'),
+        files: z.array(z.string()).min(1).describe('.nsd paths relative to root'),
+      },
+      annotations: rw('Pack .arrz arrangement archive', false, true),
+    }), async ({ output, files }) => {
+      try {
+        const items = [];
+        for (let i = 0; i < files.length; i++) {
+          const d = await ws.load(files[i]);
+          items.push({
+            diagram: d,
+            fileName: files[i].split('/').pop()!,
+            x: 40 + (i % 3) * 320,
+            y: 40 + Math.floor(i / 3) * 260,
+          });
+        }
+        const bytes = writeArrz(items, output.split('/').pop()!.replace(/\.arrz$/i, ''));
+        await ws.writeFile(output, bytes);
+        return text(`Packed ${items.length} diagrams into ${output} (${bytes.length} bytes)`);
+      } catch (e) { return fail(e); }
+    });
+
+    server.registerTool('unpack-arrz', toolCfg('unpack-arrz', {
+      title: 'Unpack .arrz arrangement archive',
+      description: 'Extracts all .nsd diagrams and the .arr arrangement list from a .arrz archive into a workspace directory.',
+      inputSchema: {
+        path: z.string().describe('.arrz file path relative to root'),
+        outDir: z.string().optional().describe('target directory relative to root, default "."'),
+      },
+      annotations: rw('Unpack .arrz arrangement archive'),
+    }), async ({ path: arrzPath, outDir }) => {
+      try {
+        const bytes = await ws.readBytes(arrzPath);
+        const bundle = readArrz(bytes);
+        const dir = (outDir ?? '.').replace(/\/+$/, '');
+        const written: string[] = [];
+        for (const entry of bundle.entries) {
+          const rel = dir === '.' ? entry.fileName : `${dir}/${entry.fileName}`;
+          await ws.save(rel, entry.diagram);
+          written.push(rel);
+        }
+        const arrRel = dir === '.' ? bundle.arrName : `${dir}/${bundle.arrName}`;
+        const arrText = formatArr(bundle.entries.map((e) => ({
+          x: e.x, y: e.y, fileName: e.fileName, name: parseSignature(e.diagram).name,
+        })));
+        await ws.writeFile(arrRel, arrText);
+        return text(JSON.stringify({ extracted: written, arrFile: arrRel }, null, 1));
+      } catch (e) { return fail(e); }
+    });
   }
 
   // ---------------------------------------------------------------- resources
@@ -564,5 +681,36 @@ export async function runMcpServer(ws: Workspace): Promise<void> {
     }],
   }));
 
+  return server;
+}
+
+export async function runMcpServer(ws: Workspace, httpPort?: number): Promise<void> {
+  if (httpPort !== undefined && Number.isFinite(httpPort) && httpPort > 0) {
+    const httpServer = http.createServer(async (req, res) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id');
+      if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+      if (req.url === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, server: 'structorizer', version: VERSION }));
+        return;
+      }
+      if (req.url?.startsWith('/mcp')) {
+        const srv = createStructorizerMcpServer(ws);
+        const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+        res.on('close', () => { void transport.close(); void srv.close(); });
+        await srv.connect(transport);
+        await transport.handleRequest(req, res);
+        return;
+      }
+      res.writeHead(404);
+      res.end('Not found');
+    });
+    await new Promise<void>((resolve) => httpServer.listen(httpPort, '127.0.0.1', resolve));
+    process.stderr.write(`Structorizer MCP HTTP server listening on http://127.0.0.1:${httpPort}/mcp\n`);
+    return;
+  }
+  const server = createStructorizerMcpServer(ws);
   await server.connect(new StdioServerTransport());
 }

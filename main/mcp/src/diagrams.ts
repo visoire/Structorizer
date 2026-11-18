@@ -64,6 +64,11 @@ export class Workspace {
     await fs.writeFile(abs, data);
   }
 
+  async readBytes(p: string): Promise<Uint8Array> {
+    const buf = await fs.readFile(this.resolve(p));
+    return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+  }
+
   async list(dir = '.', depth = 4): Promise<string[]> {
     const out: string[] = [];
     const walkDir = async (abs: string, d: number) => {

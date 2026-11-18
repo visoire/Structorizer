@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Browser-only file helpers: open/save, picture and code export, clipboard, print,
 // recent files and session autosave. Nothing here talks to a server.
-import { readNsd, writeNsd, suggestFileName, type ReadResult } from '../core/io';
+import { formatArr, parseArr, readArrz, readNsd, writeArrz, writeNsd, suggestFileName, type ArrEntry, type ArrzBundle, type ReadResult } from '../core/io';
+import { parseSignature } from '../core/lang/analyze';
 import { createLayoutEngine, createCanvasMeasure, type LayoutOptions, type MeasureFn, type Scene } from '../core/layout';
 import { generateCode, type LangId } from '../core/gen/generators';
 import { sceneToSvg } from '../core/render/svg';
@@ -105,7 +106,39 @@ export async function readFile(file: File): Promise<ReadResult> {
   return res;
 }
 
-export function pickFile(accept = '.nsd,application/xml,text/xml', multiple = false): Promise<File[]> {
+export async function readArrzFile(file: File): Promise<ArrzBundle> {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  return readArrz(buf);
+}
+
+export async function readArrFile(file: File): Promise<ArrEntry[]> {
+  return parseArr(await file.text());
+}
+
+export function exportArrzFile(docs: { diagram: Diagram; fileName: string | null; x?: number; y?: number }[], name = 'arrangement'): void {
+  const bytes = writeArrz(
+    docs.map((d) => ({ diagram: d.diagram, fileName: d.fileName ?? suggestFileName(d.diagram), x: d.x, y: d.y })),
+    name,
+  );
+  downloadBlob(new Blob([bytes.slice().buffer], { type: 'application/zip' }), `${name.replace(/\.arrz$/i, '')}.arrz`);
+}
+
+export function exportArrFile(docs: { diagram: Diagram; fileName: string | null; x?: number; y?: number }[], name = 'arrangement'): void {
+  const entries: ArrEntry[] = docs.map((d, idx) => {
+    const sig = parseSignature(d.diagram);
+    return {
+      x: d.x ?? (32 + (idx % 3) * 320),
+      y: d.y ?? (32 + Math.floor(idx / 3) * 260),
+      fileName: d.fileName ?? suggestFileName(d.diagram),
+      name: sig.name,
+      minArgs: d.diagram.diagramType === 'sub' ? sig.params.filter((p) => p.def === undefined).length : -1,
+      maxArgs: d.diagram.diagramType === 'sub' ? sig.params.length : -1,
+    };
+  });
+  downloadBlob(new Blob([formatArr(entries)], { type: 'text/plain;charset=utf-8' }), `${name.replace(/\.arr$/i, '')}.arr`);
+}
+
+export function pickFile(accept = '.nsd,.arrz,.arr,application/xml,text/xml,application/zip', multiple = false): Promise<File[]> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';

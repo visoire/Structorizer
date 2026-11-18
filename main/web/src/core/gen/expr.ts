@@ -53,10 +53,51 @@ const BUILTINS: Record<string, Record<LangId, Tpl>> = {
     c: fn('tolower_str'), cpp: fn('tolower_str'), csharp: (a) => `${a[0]}.ToLower()`,
     pascal: fn('LowerCase'), php: fn('strtolower'), bash: (a) => `\${${a[0]},,}`,
   },
+  // Turtleizer routines (#1237)
+  forward: turtleFn('forward', 'forward'),
+  fd: turtleFn('forward', 'forward'),
+  backward: turtleFn('backward', 'backward'),
+  bk: turtleFn('backward', 'backward'),
+  left: turtleFn('left', 'left'),
+  rl: turtleFn('left', 'left'),
+  right: turtleFn('right', 'right'),
+  rr: turtleFn('right', 'right'),
+  penup: turtleFn('penup', 'penUp'),
+  pendown: turtleFn('pendown', 'penDown'),
+  gotoxy: turtleFn('goto', 'gotoXY'),
+  gotox: turtleFn('setx', 'gotoX'),
+  gotoy: turtleFn('sety', 'gotoY'),
+  clear: turtleFn('clear', 'clear'),
+  hideturtle: turtleFn('hideturtle', 'hideTurtle'),
+  showturtle: turtleFn('showturtle', 'showTurtle'),
+  setpencolor: turtleFn('pencolor', 'setPenColor'),
+  setbackgroundcolor: turtleFn('bgcolor', 'setBackgroundColor'),
+};
+
+function turtleFn(pyName: string, javaName: string): Record<LangId, Tpl> {
+  return {
+    python: fn(`turtle.${pyName}`),
+    java: fn(`Turtleizer.${javaName}`),
+    javascript: fn(`turtle.${javaName}`),
+    c: fn(javaName),
+    cpp: fn(javaName),
+    csharp: fn(`Turtleizer.${cap(javaName)}`),
+    pascal: fn(javaName),
+    php: fn(javaName),
+    bash: fn(javaName),
+  };
+}
+
+const TURTLE_IMPORTS: Record<string, string> = {
+  forward: 'turtle', fd: 'turtle', backward: 'turtle', bk: 'turtle',
+  left: 'turtle', rl: 'turtle', right: 'turtle', rr: 'turtle',
+  penup: 'turtle', pendown: 'turtle', gotoxy: 'turtle', gotox: 'turtle', gotoy: 'turtle',
+  clear: 'turtle', hideturtle: 'turtle', showturtle: 'turtle',
+  setpencolor: 'turtle', setbackgroundcolor: 'turtle',
 };
 
 const IMPORTS: Partial<Record<LangId, Record<string, string>>> = {
-  python: { sqrt: 'math', sin: 'math', cos: 'math', tan: 'math', exp: 'math', log: 'math', floor: 'math', ceil: 'math', pow: 'math', random: 'random' },
+  python: { sqrt: 'math', sin: 'math', cos: 'math', tan: 'math', exp: 'math', log: 'math', floor: 'math', ceil: 'math', pow: 'math', random: 'random', ...TURTLE_IMPORTS },
   c: { sqrt: 'math.h', sin: 'math.h', cos: 'math.h', tan: 'math.h', exp: 'math.h', log: 'math.h', floor: 'math.h', ceil: 'math.h', pow: 'math.h', round: 'math.h', abs: 'stdlib.h', random: 'stdlib.h', length: 'string.h' },
   cpp: { sqrt: 'cmath', sin: 'cmath', cos: 'cmath', tan: 'cmath', exp: 'cmath', log: 'cmath', floor: 'cmath', ceil: 'cmath', pow: 'cmath', abs: 'cmath', round: 'cmath', min: 'algorithm', max: 'algorithm', random: 'cstdlib' },
   pascal: { pow: 'Math', min: 'Math', max: 'Math', lowercase: 'SysUtils' },

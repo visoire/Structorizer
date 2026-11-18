@@ -10,6 +10,25 @@ build number. Desktop issue numbers refer to
 
 ## [Unreleased]
 
+## [3.32.35-web.8] – 2026-11-18 (corresponds to Structorizer 3.32-35)
+
+Completed Phase 3 (Static Analyser, Content Assist, 2D Arranger Board, `.arr`/`.arrz` archives, Turtleizer code export), Phase 5 (Capacitor iPadOS native wrapper configuration & guide), and MCP Server execution/analysis/HTTP enhancements.
+
+### Added
+- **Phase 3a Static Analyser & Content Assist (`src/core/lang/analyser.ts`, `src/ui/DiagramView.tsx`, `src/ui/SidePanel.tsx`, `src/ui/ElementEditor.tsx`)**:
+  - Static diagram checks `A01` (empty text), `A02` (uninitialized variable read), `A03` (`FOR` loop counter modified in body), `A04` (potential endless loop with `i++`/`inc` awareness, desktop issue #1081), `A05` (constant reassignment), `A06` (unparseable `FOR` header), `A07` (empty branches / missing `CASE` discriminator), `A08` (missing function return), and `A09` (missing subroutine/includable in pool).
+  - Red warning triangles (`Element.drawWarningSignOnError` parity) on the diagram canvas (`F3` toggle), interactive Analyser list in the Side Panel, and live warnings + Content Assist autocomplete chips (`Tab` completion) inside the element editor.
+- **Phase 3b Arranger 2D Board & `.arr`/`.arrz` Archives (`src/core/io/arranger.ts`, `src/ui/DiagramView.tsx`, `src/ui/exporters.ts`)**:
+  - Interactive 2D Arranger surface (`Ctrl+Shift+A` or `Board` button in Arranger index) displaying all open diagrams as movable, pinnable cards with live SVG rendering and grid auto-layout.
+  - Pure-TypeScript PKZIP reader/writer with RFC 1951 raw DEFLATE decompression for desktop-compatible `.arrz` and `.arr` import and export (`Archivar.java` parity).
+- **Phase 3c Turtleizer Code Export (`src/core/gen/expr.ts`, desktop issue #1237)**:
+  - Translates Turtleizer routines (`forward`/`fd`, `backward`/`bk`, `left`/`rl`, `right`/`rr`, `penUp`, `penDown`, `gotoXY`, `setPenColor`, `setBackgroundColor`, `clear`, `hideTurtle`, `showTurtle`) to `turtle.*` (with `import turtle`) in Python and `Turtleizer.*` in Java/C#.
+- **MCP Server Enhancements (`main/mcp/src/server.ts`, `cli.ts`)**:
+  - Added 4 new tools (21 total): `execute-diagram` (headless execution with `inputs`, `args`, final variables, coverage, and Turtleizer segment count), `analyse-diagram` (`A01`–`A09` static analysis), `pack-arrz`, and `unpack-arrz`.
+  - Added Streamable HTTP MCP transport (`structorizer-cli mcp --http <port>`) alongside `stdio`, plus `structorizer-cli analyse` and `structorizer-cli run` CLI subcommands.
+- **Phase 5 Native iPadOS Wrapper (`main/web/capacitor.config.json`, `docs/ipados-native-guide.md`)**:
+  - Added Capacitor configuration (`io.github.visoire.structorizer`) and iPadOS packaging guide with `UTExportedTypeDeclarations` for `.nsd` and `.arrz` files.
+
 ## [3.32.35-web.7] – 2026-11-18 (corresponds to Structorizer 3.32-35)
 
 Completed Phase 1e and Phase 2 of `info/plan.md`: full Executor & Debugger, Turtleizer, Pratt AST parser, multi-selection, branch head colouring, PWA offline service worker, and comprehensive iPadOS / Apple Pencil / Magic Keyboard integration.

@@ -62,6 +62,9 @@ function PrefsDialog() {
           <Check k="switchTextComments" label="switchTextComments" />
           <Check k="highlightVars" label="highlightVars" />
           <Check k="cOperators" label="cOperators" />
+          <label className="check">
+            <input type="checkbox" checked={p.analyserWarnings} onChange={() => p.toggle('analyserWarnings')} /> Analyse structogram (show warning triangles &amp; findings)
+          </label>
         </div>
       )}
       {tab === 'export' && (

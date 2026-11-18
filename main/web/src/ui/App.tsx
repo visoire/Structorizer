@@ -139,6 +139,7 @@ export function App() {
       else if (ctrl && lower === 't') actions.transmute();
       else if (ctrl && lower === 'k') st.openQuickDish(st.quickDish ? null : { x: window.innerWidth / 2, y: window.innerHeight / 2 });
       else if (ctrl && e.shiftKey && lower === 'x') actions.exportCode();
+      else if (ctrl && e.shiftKey && lower === 'a') actions.toggleArrangerBoard();
       else if (ctrl && k === 'F11') actions.outsource();
       else if (ctrl && e.shiftKey && lower === 'r') actions.turtleizer();
       else if (ctrl && lower === 'r') actions.executor();
@@ -165,6 +166,7 @@ export function App() {
       else if (k === 'F1') actions.docs('#user-guide');
       else if (k === 'F4' && e.shiftKey) actions.togglePanel('code');
       else if (k === 'F3' && e.shiftKey) actions.togglePanel('index');
+      else if (k === 'F3') actions.toggleAnalyser();
       else if (k === 'F4') usePrefs.getState().toggle('highlightVars');
       else if (e.code === 'NumpadSubtract') actions.collapse();
       else if (e.code === 'NumpadAdd') actions.expand();

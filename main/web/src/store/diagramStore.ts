@@ -17,9 +17,13 @@ export interface DocSlot {
   fileName: string | null;
   past: Diagram[];
   future: Diagram[];
+  x?: number;
+  y?: number;
+  pinned?: boolean;
 }
 
 export type DialogName = 'prefs' | 'find' | 'about' | 'keys' | 'pngMulti' | null;
+export type ViewMode = 'editor' | 'arranger';
 
 export type Selection =
   | { t: 'el'; id: string; ids?: string[]; anchorId?: string; branchHead?: number }
@@ -50,6 +54,10 @@ interface State {
   zoom: number;
   /** id of the active document; the others live in `docs`. */
   activeId: string;
+  activeX?: number;
+  activeY?: number;
+  activePinned?: boolean;
+  viewMode: ViewMode;
   docs: DocSlot[];
   dialog: DialogName;
   contextMenu: { x: number; y: number } | null;
@@ -85,11 +93,16 @@ interface State {
   openEditor: (target: State['editor']) => void;
   closeEditor: (cancelNew?: boolean) => void;
   setZoom: (z: number) => void;
-  // documents (Arranger index)
-  newDoc: (d?: Diagram, fileName?: string | null) => void;
-  openDoc: (d: Diagram, fileName: string | null) => void;
+  // documents (Arranger index & Arranger board)
+  newDoc: (d?: Diagram, fileName?: string | null, pos?: { x?: number; y?: number }) => void;
+  openDoc: (d: Diagram, fileName: string | null, pos?: { x?: number; y?: number }) => void;
+  openArrz: (entries: { diagram: Diagram; x: number; y: number; fileName: string }[]) => void;
   switchDoc: (id: string) => void;
   closeDoc: (id: string) => void;
+  setViewMode: (m: ViewMode) => void;
+  moveDocCard: (id: string, x: number, y: number) => void;
+  togglePinDoc: (id: string) => void;
+  autoLayoutDocs: () => void;
   allDocs: () => (DocSlot & { active: boolean; dirty: boolean })[];
   restoreSession: (docs: { diagram: Diagram; fileName: string | null }[], active: number) => void;
   // more desktop functions
@@ -129,6 +142,10 @@ export const useStore = create<State>((set, get) => ({
   editor: null,
   zoom: 1,
   activeId: newId(),
+  activeX: 32,
+  activeY: 32,
+  activePinned: false,
+  viewMode: 'editor',
   docs: [],
   dialog: null,
   contextMenu: null,
@@ -370,22 +387,66 @@ export const useStore = create<State>((set, get) => ({
     set({ editor: null });
   },
 
-  newDoc: (d, fileName = null) => {
+  newDoc: (d, fileName = null, pos) => {
     const s = get();
-    const slot: DocSlot = { id: s.activeId, diagram: s.diagram, savedDiagram: s.savedDiagram, fileName: s.fileName, past: s.past, future: s.future };
+    const idx = s.docs.length + 1;
+    const slot: DocSlot = {
+      id: s.activeId,
+      diagram: s.diagram,
+      savedDiagram: s.savedDiagram,
+      fileName: s.fileName,
+      past: s.past,
+      future: s.future,
+      x: s.activeX ?? 32,
+      y: s.activeY ?? 32,
+      pinned: s.activePinned ?? false,
+    };
     const fresh = d ?? createDiagram();
     set({
-      docs: [...s.docs, slot], activeId: newId(), diagram: fresh, savedDiagram: d ? fresh : null, fileName,
-      past: [], future: [], selection: null, editor: null,
+      docs: [...s.docs, slot],
+      activeId: newId(),
+      activeX: pos?.x ?? (32 + (idx % 3) * 320),
+      activeY: pos?.y ?? (32 + Math.floor(idx / 3) * 260),
+      activePinned: false,
+      diagram: fresh,
+      savedDiagram: d ? fresh : null,
+      fileName,
+      past: [],
+      future: [],
+      selection: null,
+      editor: null,
     });
   },
 
-  openDoc: (d, fileName) => {
+  openDoc: (d, fileName, pos) => {
     const s = get();
     // replace an untouched empty diagram, otherwise open next to it (nothing gets lost)
     const untouched = s.diagram.children.length === 0 && s.past.length === 0 && !s.fileName;
-    if (untouched) set({ diagram: d, savedDiagram: d, fileName, past: [], future: [], selection: null, editor: null });
-    else get().newDoc(d, fileName);
+    if (untouched) {
+      set({
+        diagram: d,
+        savedDiagram: d,
+        fileName,
+        activeX: pos?.x ?? s.activeX ?? 32,
+        activeY: pos?.y ?? s.activeY ?? 32,
+        activePinned: false,
+        past: [],
+        future: [],
+        selection: null,
+        editor: null,
+      });
+    } else {
+      get().newDoc(d, fileName, pos);
+    }
+  },
+
+  openArrz: (entries) => {
+    for (const entry of entries) {
+      get().openDoc(entry.diagram, entry.fileName, { x: entry.x, y: entry.y });
+    }
+    if (entries.length > 1) {
+      set({ viewMode: 'arranger' });
+    }
   },
 
   switchDoc: (id) => {
@@ -393,11 +454,30 @@ export const useStore = create<State>((set, get) => ({
     if (id === s.activeId) return;
     const target = s.docs.find((x) => x.id === id);
     if (!target) return;
-    const current: DocSlot = { id: s.activeId, diagram: s.diagram, savedDiagram: s.savedDiagram, fileName: s.fileName, past: s.past, future: s.future };
+    const current: DocSlot = {
+      id: s.activeId,
+      diagram: s.diagram,
+      savedDiagram: s.savedDiagram,
+      fileName: s.fileName,
+      past: s.past,
+      future: s.future,
+      x: s.activeX,
+      y: s.activeY,
+      pinned: s.activePinned,
+    };
     set({
       docs: s.docs.map((x) => (x.id === id ? current : x)),
-      activeId: target.id, diagram: target.diagram, savedDiagram: target.savedDiagram, fileName: target.fileName,
-      past: target.past, future: target.future, selection: null, editor: null,
+      activeId: target.id,
+      activeX: target.x ?? 32,
+      activeY: target.y ?? 32,
+      activePinned: target.pinned ?? false,
+      diagram: target.diagram,
+      savedDiagram: target.savedDiagram,
+      fileName: target.fileName,
+      past: target.past,
+      future: target.future,
+      selection: null,
+      editor: null,
     });
   },
 
@@ -405,10 +485,76 @@ export const useStore = create<State>((set, get) => ({
     const s = get();
     if (id !== s.activeId) { set({ docs: s.docs.filter((x) => x.id !== id) }); return; }
     const next = s.docs[s.docs.length - 1];
-    if (!next) { set({ diagram: createDiagram(), savedDiagram: null, fileName: null, past: [], future: [], selection: null }); return; }
+    if (!next) {
+      set({
+        diagram: createDiagram(),
+        savedDiagram: null,
+        fileName: null,
+        activeX: 32,
+        activeY: 32,
+        activePinned: false,
+        past: [],
+        future: [],
+        selection: null,
+      });
+      return;
+    }
     set({
-      docs: s.docs.slice(0, -1), activeId: next.id, diagram: next.diagram, savedDiagram: next.savedDiagram,
-      fileName: next.fileName, past: next.past, future: next.future, selection: null, editor: null,
+      docs: s.docs.slice(0, -1),
+      activeId: next.id,
+      activeX: next.x ?? 32,
+      activeY: next.y ?? 32,
+      activePinned: next.pinned ?? false,
+      diagram: next.diagram,
+      savedDiagram: next.savedDiagram,
+      fileName: next.fileName,
+      past: next.past,
+      future: next.future,
+      selection: null,
+      editor: null,
+    });
+  },
+
+  setViewMode: (viewMode) => set({ viewMode }),
+
+  moveDocCard: (id, x, y) => {
+    const s = get();
+    const rx = Math.max(8, Math.round(x));
+    const ry = Math.max(8, Math.round(y));
+    if (id === s.activeId) {
+      if (s.activePinned) return;
+      set({ activeX: rx, activeY: ry });
+    } else {
+      set({
+        docs: s.docs.map((d) => (d.id === id && !d.pinned ? { ...d, x: rx, y: ry } : d)),
+      });
+    }
+  },
+
+  togglePinDoc: (id) => {
+    const s = get();
+    if (id === s.activeId) {
+      set({ activePinned: !s.activePinned });
+    } else {
+      set({
+        docs: s.docs.map((d) => (d.id === id ? { ...d, pinned: !d.pinned } : d)),
+      });
+    }
+  },
+
+  autoLayoutDocs: () => {
+    const s = get();
+    const all = s.allDocs();
+    all.forEach((doc, idx) => {
+      const x = 32 + (idx % 3) * 340;
+      const y = 32 + Math.floor(idx / 3) * 280;
+      if (doc.id === s.activeId) {
+        if (!s.activePinned) set({ activeX: x, activeY: y });
+      } else {
+        set((st) => ({
+          docs: st.docs.map((d) => (d.id === doc.id && !d.pinned ? { ...d, x, y } : d)),
+        }));
+      }
     });
   },
 
@@ -416,10 +562,26 @@ export const useStore = create<State>((set, get) => ({
     const s = get();
     const dirtyOf = (x: { diagram: Diagram; savedDiagram: Diagram | null; past: Diagram[] }) =>
       x.diagram !== x.savedDiagram && (x.savedDiagram !== null || x.past.length > 0);
-    const active = { id: s.activeId, diagram: s.diagram, savedDiagram: s.savedDiagram, fileName: s.fileName, past: s.past, future: s.future };
+    const active: DocSlot = {
+      id: s.activeId,
+      diagram: s.diagram,
+      savedDiagram: s.savedDiagram,
+      fileName: s.fileName,
+      past: s.past,
+      future: s.future,
+      x: s.activeX ?? 32,
+      y: s.activeY ?? 32,
+      pinned: s.activePinned ?? false,
+    };
     return [
       { ...active, active: true, dirty: dirtyOf(active) },
-      ...s.docs.map((x) => ({ ...x, active: false, dirty: dirtyOf(x) })),
+      ...s.docs.map((x, idx) => ({
+        ...x,
+        x: x.x ?? (32 + ((idx + 1) % 3) * 320),
+        y: x.y ?? (32 + Math.floor((idx + 1) / 3) * 260),
+        active: false,
+        dirty: dirtyOf(x),
+      })),
     ];
   },
 

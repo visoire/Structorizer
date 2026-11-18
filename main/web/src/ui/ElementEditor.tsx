@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Element editor and diagram (root) editor. Esc closes every dialog (desktop issue #401).
-import { useEffect, useRef, useState } from 'react';
-import { DEFAULT_COLORS, findById, walk, type DiagramType, type Element, type ElementKind } from '../core/model';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { DEFAULT_COLORS, findById, updateElement, walk, type DiagramType, type Element, type ElementKind } from '../core/model';
+import { analyseDiagram, diagramVariables, parseSignature } from '../core/lang';
 import { useTranslator, type TKey } from '../i18n';
 import { useStore } from '../store/diagramStore';
 import { usePrefs } from '../store/prefsStore';
@@ -71,11 +72,60 @@ export function ElementEditor() {
 
 function ElementForm({ el, isNew }: { el: Element; isNew: boolean }) {
   const lang = usePrefs((p) => p.lang);
+  const analyserOn = usePrefs((p) => p.analyserWarnings);
+  const diagram = useStore((s) => s.diagram);
+  const docs = useStore((s) => s.docs);
   const t = useTranslator(lang);
   const [text, setText] = useState(() => (el.kind === 'parallel' ? String(el.branches.length) : fromLines(el.text)));
   const [comment, setComment] = useState(() => fromLines(el.comment));
   const [color, setColor] = useState(el.color);
   const [disabled, setDisabled] = useState(el.disabled);
+  const [caret, setCaret] = useState(0);
+  const taRef = useRef<HTMLTextAreaElement>(null);
+
+  const candidates = useMemo(() => {
+    const vars = [...diagramVariables(diagram)];
+    const subs = docs
+      .map((d) => d.diagram)
+      .filter((d) => d.diagramType === 'sub')
+      .map((d) => `${parseSignature(d).name}()`);
+    const k = diagram.keywords;
+    const kws = [k.input, k.output, k.preFor, k.preForIn, k.preWhile, k.preRepeat, k.preReturn, k.preLeave, '<-'];
+    const builtins = ['sqrt(', 'abs(', 'random(', 'length(', 'inc(', 'dec(', 'forward(', 'right(', 'left(', 'penUp()', 'penDown()'];
+    return [...new Set([...vars, ...subs, ...kws, ...builtins].filter(Boolean))];
+  }, [diagram, docs]);
+
+  const prefixMatch = useMemo(() => {
+    const before = text.slice(0, caret);
+    const m = /([\p{L}_][\p{L}\p{N}_]*)$/u.exec(before);
+    const prefix = m ? m[1] : '';
+    const start = m ? caret - prefix.length : caret;
+    const low = prefix.toLowerCase();
+    const list = prefix
+      ? candidates.filter((c) => c.toLowerCase().startsWith(low) && c.toLowerCase() !== low).slice(0, 8)
+      : candidates.slice(0, 8);
+    return { prefix, start, list };
+  }, [text, caret, candidates]);
+
+  const applyAssist = (item: string) => {
+    const next = text.slice(0, prefixMatch.start) + item + text.slice(caret);
+    const nextPos = prefixMatch.start + item.length;
+    setText(next);
+    setCaret(nextPos);
+    requestAnimationFrame(() => {
+      if (taRef.current) {
+        taRef.current.focus();
+        taRef.current.setSelectionRange(nextPos, nextPos);
+      }
+    });
+  };
+
+  const liveFindings = useMemo(() => {
+    if (!analyserOn || el.kind === 'forever' || el.kind === 'parallel') return [];
+    const draft = updateElement(diagram, el.id, { text: toLines(text), disabled });
+    const pool = [draft, ...docs.map((d) => d.diagram)];
+    return analyseDiagram(draft, pool).filter((f) => f.elementId === el.id);
+  }, [analyserOn, diagram, docs, el.id, el.kind, text, disabled]);
 
   const close = () => useStore.getState().closeEditor(isNew);
   const ok = () => {
@@ -101,8 +151,44 @@ function ElementForm({ el, isNew }: { el: Element; isNew: boolean }) {
           <span>{t('text')}</span>
           {el.kind === 'parallel'
             ? <input type="number" min={1} max={20} value={text} onChange={(e) => setText(e.target.value)} />
-            : <textarea rows={Math.min(10, Math.max(3, text.split('\n').length + 1))} value={text} spellCheck={false}
-                autoCapitalize="off" autoCorrect="off" onChange={(e) => setText(e.target.value)} />}
+            : <textarea
+                ref={taRef}
+                rows={Math.min(10, Math.max(3, text.split('\n').length + 1))}
+                value={text}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                onChange={(e) => {
+                  setText(e.target.value);
+                  setCaret(e.target.selectionStart ?? e.target.value.length);
+                }}
+                onKeyUp={(e) => setCaret((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
+                onClick={(e) => setCaret((e.target as HTMLTextAreaElement).selectionStart ?? 0)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Tab' && prefixMatch.prefix && prefixMatch.list.length > 0) {
+                    e.preventDefault();
+                    applyAssist(prefixMatch.list[0]);
+                  }
+                }}
+              />}
+          {el.kind !== 'parallel' && prefixMatch.list.length > 0 && (
+            <div className="assist-bar" aria-label="Content assist">
+              {prefixMatch.list.map((c) => (
+                <button key={c} type="button" className="assist-chip" onClick={() => applyAssist(c)}>
+                  {c}
+                </button>
+              ))}
+            </div>
+          )}
+          {liveFindings.length > 0 && (
+            <div className="editor-warnings">
+              {liveFindings.map((f, i) => (
+                <div key={`${f.code}-${i}`} className={`editor-warn ${f.severity}`}>
+                  <strong>{f.code}:</strong> {f.message}
+                </div>
+              ))}
+            </div>
+          )}
           {hint && <small className="hint">{t(hint)}</small>}
         </label>
       )}

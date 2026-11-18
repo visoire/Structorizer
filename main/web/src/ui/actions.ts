@@ -8,8 +8,8 @@ import { useStore } from '../store/diagramStore';
 import { useExecStore } from '../store/execStore';
 import { usePrefs } from '../store/prefsStore';
 import {
-  copyPngToClipboard, exportCode, exportEmf, exportPdf, exportPng, exportPngMulti, exportSvg, moveSaveHandle,
-  pickFile, printDiagram, readFile, saveDiagram, savePrefsFile, type RecentFile,
+  copyPngToClipboard, exportArrFile, exportArrzFile, exportCode, exportEmf, exportPdf, exportPng, exportPngMulti, exportSvg, moveSaveHandle,
+  pickFile, printDiagram, readArrFile, readArrzFile, readFile, saveDiagram, savePrefsFile, type RecentFile,
 } from './exporters';
 
 declare const __SINGLE_FILE__: boolean;
@@ -42,15 +42,56 @@ export const actions = {
   newDiagram: () => actions.newWith('program'),
 
   open: async () => {
-    const files = await pickFile('.nsd,application/xml,text/xml', true);
+    const files = await pickFile('.nsd,.arrz,.arr,application/xml,text/xml,application/zip', true);
     for (const file of files) {
       await guard(async () => {
+        const low = file.name.toLowerCase();
+        if (low.endsWith('.arrz')) {
+          const bundle = await readArrzFile(file);
+          st().openArrz(bundle.entries);
+          notify(`Loaded ${bundle.entries.length} diagrams from ${file.name}`, 'success');
+          return;
+        }
+        if (low.endsWith('.arr')) {
+          const entries = await readArrFile(file);
+          const all = st().allDocs();
+          let matched = 0;
+          for (const entry of entries) {
+            const doc = all.find((d) => (d.fileName ?? '').toLowerCase() === entry.fileName.toLowerCase());
+            if (doc) {
+              st().moveDocCard(doc.id, entry.x, entry.y);
+              matched++;
+            }
+          }
+          if (all.length > 1) st().setViewMode('arranger');
+          notify(`Applied arrangement positions (${matched}/${entries.length} matched)`, 'info');
+          return;
+        }
         const { diagram, warnings } = await readFile(file);
         st().openDoc(diagram, file.name);
         st().requestFit();
         if (warnings.length) notify(`${t()('loadedWithWarnings')}: ${warnings.slice(0, 3).join(' ')}`);
       }).catch(() => notify(t()('openFailed'), 'error'));
     }
+  },
+
+  exportArrz: () => {
+    exportArrzFile(st().allDocs());
+    notify(`${t()('exported')}: ARRZ`, 'success');
+  },
+
+  exportArr: () => {
+    exportArrFile(st().allDocs());
+    notify(`${t()('exported')}: ARR`, 'success');
+  },
+
+  toggleArrangerBoard: () => {
+    const s = st();
+    s.setViewMode(s.viewMode === 'arranger' ? 'editor' : 'arranger');
+  },
+
+  toggleAnalyser: () => {
+    usePrefs.getState().toggle('analyserWarnings');
   },
 
   openXml: (xml: string, name: string | null) => {

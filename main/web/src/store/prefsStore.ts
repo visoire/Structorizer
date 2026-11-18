@@ -19,6 +19,7 @@ export interface Prefs {
   cOperators: boolean;
   switchTextComments: boolean;
   commentsPlusText: boolean;
+  analyserWarnings: boolean;
   // side panel (Arranger index / Code preview)
   panelOpen: boolean;
   panelTab: PanelTab;
@@ -53,6 +54,7 @@ export const DEFAULT_PREFS: Prefs = {
   cOperators: false,
   switchTextComments: false,
   commentsPlusText: false,
+  analyserWarnings: true,
   panelOpen: true,
   panelTab: 'code',
   panelWidth: 380,

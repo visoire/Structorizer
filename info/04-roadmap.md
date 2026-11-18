@@ -50,12 +50,12 @@ Code export moved to Phase 2 (needs the expression parser, D-15).
 
 ---
 
-## Phase 3 – Advanced Features
-- Arranger (multiple diagrams on one canvas, .arr/.arrz; Arranger index already done)
-- More code generators (Pascal, Java, C, C#, C++, PHP, Bash done)
-- Turtleizer (done in Phase 2)
-- Content assist / syntax hints
-- Analyser warnings
+## Phase 3 – Advanced Features ✅ (2026-11-18)
+- [x] Arranger (multiple diagrams on one 2D board canvas, `.arr`/`.arrz` pure-TS PKZIP/RFC 1951 import & export; Arranger index)
+- [x] More code generators (Python, Java, JavaScript, C, C++, C#, Pascal, PHP, Bash + Turtleizer `#1237` export)
+- [x] Turtleizer (done in Phase 2 + code export in Phase 3)
+- [x] Content assist / syntax hints (`ElementEditor.tsx` autocomplete chips & `Tab` completion for variables, subroutines, keywords, and built-ins)
+- [x] Analyser warnings (`src/core/lang/analyser.ts` checks `A01`–`A09` with `#1081` awareness, red warning triangles on canvas, and interactive Analyser list in Side Panel)
 
 ---
 
@@ -67,16 +67,16 @@ Code export moved to Phase 2 (needs the expression parser, D-15).
 
 ---
 
-## Phase 5 – Native Wrappers (later)
-- Capacitor or Tauri for better iOS/iPadOS integration if PWA is not enough
+## Phase 5 – Native Wrappers ✅ (2026-11-18)
+- [x] Capacitor configuration (`main/web/capacitor.config.json`) & iPadOS native packaging guide (`docs/ipados-native-guide.md`) with `.nsd`/`.arrz` `UTExportedTypeDeclarations`
 
 ---
 
-## Success Metrics (first public version)
-- Can create, edit, save and execute typical school algorithms
-- Runs completely offline
-- Looks modern and feels fast
-- Easy to self-host (static files)
+## Success Metrics (first public version) ✅ (2026-11-18)
+- [x] Can create, edit, save and execute typical school algorithms
+- [x] Runs completely offline
+- [x] Looks modern and feels fast
+- [x] Easy to self-host (static files)
 
 ---
 

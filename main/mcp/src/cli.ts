@@ -8,8 +8,9 @@
 //   structorizer-cli find <query> [--dir <dir>]
 //   structorizer-cli export <file.nsd> --format svg|emf [--out <file>]
 import path from 'node:path';
+import { executeDiagram } from '../../web/src/core/exec/executor';
 import { generateCode, LANGUAGES, type LangId } from '../../web/src/core/gen/generators';
-import { diagramVariables, parseSignature } from '../../web/src/core/lang/analyze';
+import { analyseDiagram, diagramVariables, parseSignature } from '../../web/src/core/lang';
 import { createLayoutEngine } from '../../web/src/core/layout';
 import { walk } from '../../web/src/core/model';
 import { sceneToEmf } from '../../web/src/core/render/emf';
@@ -29,9 +30,11 @@ async function main() {
   const root = path.resolve(arg('--root') ?? process.cwd());
   const ws = new Workspace(root, process.argv.includes('--read-only'));
   switch (cmd) {
-    case 'mcp':
-      await runMcpServer(ws);
+    case 'mcp': {
+      const httpPort = arg('--http') ? Number(arg('--http')) : undefined;
+      await runMcpServer(ws, httpPort);
       return;
+    }
     case 'code': {
       const lang = (arg('--lang') ?? 'python') as LangId;
       if (!LANGUAGES.some((l) => l.id === lang)) throw new Error(`Unknown language ${lang}`);
@@ -60,6 +63,27 @@ async function main() {
       const res = validateDiagram(d, pool);
       process.stdout.write(JSON.stringify(res, null, 2) + '\n');
       if (!res.valid) process.exitCode = 1;
+      return;
+    }
+    case 'analyse': {
+      const d = await ws.load(file);
+      const pool = [d, ...(await loadWorkspacePool(ws, file))];
+      const findings = analyseDiagram(d, pool);
+      process.stdout.write(JSON.stringify({ count: findings.length, findings }, null, 2) + '\n');
+      return;
+    }
+    case 'run': {
+      const d = await ws.load(file);
+      const pool = [d, ...(await loadWorkspacePool(ws, file))];
+      const inputs = arg('--inputs') ? arg('--inputs')!.split(',') : [];
+      const gen = executeDiagram(d, { pool, inputs });
+      let step = gen.next();
+      while (!step.done) step = gen.next();
+      const res = step.value;
+      process.stdout.write(JSON.stringify({
+        outputs: res.outputs,
+        returnValue: res.returnValue ?? null,
+      }, null, 2) + '\n');
       return;
     }
     case 'find': {
@@ -91,9 +115,9 @@ async function main() {
     default: {
       const langs = LANGUAGES.map((l) => l.id).join('|');
       process.stdout.write(
-        `Usage: structorizer-cli mcp [--root <dir>] [--read-only]\n` +
+        `Usage: structorizer-cli mcp [--root <dir>] [--read-only] [--http <port>]\n` +
         `       structorizer-cli code <file.nsd> --lang <${langs}> [--root <dir>]\n` +
-        `       structorizer-cli outline|info|validate <file.nsd> [--root <dir>]\n` +
+        `       structorizer-cli outline|info|validate|analyse|run <file.nsd> [--root <dir>]\n` +
         `       structorizer-cli find <query> [--dir <dir>] [--root <dir>]\n` +
         `       structorizer-cli export <file.nsd> --format <svg|emf> [--out <file>] [--root <dir>]\n`,
       );

@@ -25,14 +25,14 @@ let passed = 0;
 const step = async (label, fn) => { await fn(); passed++; console.log(`ok  ${label}`); };
 
 try {
-  await step('lists all 17 tools with complete MCP annotations', async () => {
+  await step('lists all 21 tools with complete MCP annotations', async () => {
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     assert.deepEqual(names, [
-      'add-element', 'batch', 'create-diagram', 'delete-element', 'diagram-info',
-      'export-code', 'export-picture', 'find-in-diagrams', 'list-commands',
-      'list-diagrams', 'move-element', 'read-diagram', 'replace-in-diagram',
-      'transmute-element', 'update-diagram', 'update-element', 'validate-diagram',
+      'add-element', 'analyse-diagram', 'batch', 'create-diagram', 'delete-element', 'diagram-info',
+      'execute-diagram', 'export-code', 'export-picture', 'find-in-diagrams', 'list-commands',
+      'list-diagrams', 'move-element', 'pack-arrz', 'read-diagram', 'replace-in-diagram',
+      'transmute-element', 'unpack-arrz', 'update-diagram', 'update-element', 'validate-diagram',
     ]);
     for (const tool of tools) {
       assert.equal(typeof tool.annotations?.readOnlyHint, 'boolean', `${tool.name} missing readOnlyHint`);
@@ -45,7 +45,7 @@ try {
   await step('list-commands reports tools, element kinds and 9 code languages', async () => {
     const info = JSON.parse(await call('list-commands', {}));
     assert.equal(info.readOnly, false);
-    assert.equal(info.tools.length, 17);
+    assert.equal(info.tools.length, 21);
     assert.equal(info.elementKinds.length, 11);
     assert.deepEqual(info.codeLanguages.map((l) => l.id), ['python', 'java', 'javascript', 'c', 'cpp', 'csharp', 'pascal', 'php', 'bash']);
   });
@@ -132,6 +132,19 @@ try {
     const check = JSON.parse(await call('validate-diagram', { path: 'demo/caller.nsd' }));
     assert.equal(check.valid, true);
     assert.equal(check.issues.length, 0);
+
+    const execOut = JSON.parse(await call('execute-diagram', { path: 'demo/caller.nsd' }));
+    assert.deepEqual(execOut.outputs, ['10']);
+    assert.equal(execOut.variables.res, 10);
+
+    const anaOut = JSON.parse(await call('analyse-diagram', { path: 'demo/caller.nsd' }));
+    assert.equal(anaOut.count, 0);
+
+    const packOut = await call('pack-arrz', { output: 'demo/bundle.arrz', files: ['demo/caller.nsd', 'demo/sub_helper.nsd'] });
+    assert.match(packOut, /Packed 2 diagrams/);
+    const unpackOut = JSON.parse(await call('unpack-arrz', { path: 'demo/bundle.arrz', outDir: 'demo/unpacked' }));
+    assert.equal(unpackOut.extracted.length, 2);
+    assert.ok(existsSync(path.join(root, 'demo', 'unpacked', 'caller.nsd')));
   });
 
   await step('exports code across Python, Java, C, C# and Pascal with workspace subroutines', async () => {
@@ -185,7 +198,10 @@ try {
     await roClient.connect(roTransport);
     try {
       const { tools } = await roClient.listTools();
-      assert.deepEqual(tools.map((t) => t.name).sort(), ['diagram-info', 'export-code', 'find-in-diagrams', 'list-commands', 'list-diagrams', 'read-diagram', 'validate-diagram']);
+      assert.deepEqual(tools.map((t) => t.name).sort(), [
+        'analyse-diagram', 'diagram-info', 'execute-diagram', 'export-code',
+        'find-in-diagrams', 'list-commands', 'list-diagrams', 'read-diagram', 'validate-diagram',
+      ]);
     } finally {
       await roClient.close();
     }
