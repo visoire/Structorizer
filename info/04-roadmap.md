@@ -1,86 +1,23 @@
-# 04 – Roadmap (Structorizer Web)
+# Roadmap – Open & Future Items (Structorizer Web)
 
-## Guiding Principles
-- Fully client-side first
-- GDPR / school friendly
-- Progressive enhancement
-- Modern clean codebase (not a 1:1 Java port)
+This document lists only the features and enhancements that are **not yet implemented** or remain open for future releases.
 
 ---
 
-Detailed, executable steps live in `plan.md`. This file is the coarse overview.
+## 1. Source Code Import (Code → Structogram)
+- [ ] **Python parser (`importPython`)**: Parse Python 3 functions, control flow (`if`/`elif`/`else`, `match`/`case`, `for`, `while`, `try`/`except`/`finally`), and assignments into `.nsd` diagrams.
+- [ ] **C / Java / JavaScript parser**: Parse C-family source files into `.nsd` diagrams without relying on the legacy Java GOLDParser `.egt` grammar tables.
+- [ ] **Pascal / Delphi parser**: Parse `program` / `procedure` / `function` blocks into `.nsd` diagrams.
+- [ ] **PapDesigner (`.pap`) & legacy `.str` import**: Import XML project files from PapDesigner.
 
-## Phase 0 – Analysis & Foundations ✅ (2026-11-18)
-- [x] Agent prompt created
-- [x] Deep source code analysis of original Structorizer (`../docs/source-analysis.md`)
-- [x] Data model + TypeScript interfaces specified (`01-data-model.md`, revised)
-- [x] File format spec + fixture, layout spec, decisions, desktop issue review (`../docs/`)
-- [x] Project scaffold (Vite + TS + React) in `main/web/`
-- [x] SVG diagram renderer
+## 2. Additional Academic & LaTeX Export Formats
+- [ ] **StrukTeX / LaTeX export (`.tex`)**: Generate `\begin{struktogramm}` (`struktex` / `pict2e`) macros for academic papers and worksheets.
+- [ ] **Additional language generators**: Oberon, Perl, and KSH export parity.
 
----
+## 3. Advanced Arranger & Workspace Features
+- [ ] **Dependency graph arrows on the 2D Arranger Board**: Draw visual call/include arrows between caller cards and subroutine/includable cards on the Arranger surface.
+- [ ] **Multi-diagram batch code export**: Export an entire `.arrz` arrangement into a multi-file source archive (`.zip`).
 
-## Phase 1 – Basic Editor (MVP) ✅ version 0.1.0 (2026-11-18)
-Open: manual check with Structorizer Desktop (P1-05) and a real iPad test (review gate).
-Follow-ups P1-26 .. P1-31 (PWA, context menu, multi-selection, branch colours, transmute, print).
-
-- .nsd open / save with round trip to Structorizer Desktop (native format, D-09; no own JSON format)
-- Create / delete / reorder elements (toolbar, drag and drop, touch)
-- Edit text, comment, color, disabled
-- Undo / Redo, copy / paste
-- Autosave in localStorage
-- Export as PNG / SVG
-- German + English UI
-
-**Target**: Usable for simple teaching diagrams on iPad and desktop browsers.
-Code export moved to Phase 2 (needs the expression parser, D-15).
-
----
-
-## Phase 2 – Core Execution ✅ (2026-11-18)
-- [x] Own expression language: keyword-aware tokenizer, Pratt parser, AST evaluator (no eval, D-14)
-- [x] Interpreter / Executor (step mode + continuous with speed control)
-- [x] Code export for 9 languages (Python, Java, JavaScript, C, C++, C#, Pascal, PHP, Bash)
-- [x] Several open diagrams, subroutine calls & includable diagrams
-- [x] Variable watch (editable while paused)
-- [x] Breakpoints (`Ctrl+B`, red top bar)
-- [x] Highlight currently executing element
-- [x] Runtime analysis overlay (execution counts & coverage)
-- [x] Turtleizer controller (`forward`, `left`, `right`, `penUp`/`penDown`, `gotoXY`, SVG export)
-
----
-
-## Phase 3 – Advanced Features ✅ (2026-11-18)
-- [x] Arranger (multiple diagrams on one 2D board canvas, `.arr`/`.arrz` pure-TS PKZIP/RFC 1951 import & export; Arranger index)
-- [x] More code generators (Python, Java, JavaScript, C, C++, C#, Pascal, PHP, Bash + Turtleizer `#1237` export)
-- [x] Turtleizer (done in Phase 2 + code export in Phase 3)
-- [x] Content assist / syntax hints (`ElementEditor.tsx` autocomplete chips & `Tab` completion for variables, subroutines, keywords, and built-ins)
-- [x] Analyser warnings (`src/core/lang/analyser.ts` checks `A01`–`A09` with `#1081` awareness, red warning triangles on canvas, and interactive Analyser list in Side Panel)
-
----
-
-## Phase 4 – Polish & Distribution ✅ (2026-11-18)
-- [x] PWA (offline precache service worker `sw.js`, installable `manifest.webmanifest`)
-- [x] iPad / touch optimization (Apple Pencil hover/squeeze/tilt, `TouchArbitrator` palm rejection, 2-finger Undo / 3-finger Redo, OwlLuna `InkDish` radial palette, Magic Keyboard `⌥1..⌥-` & `⌘9` shortcuts, `VisualViewport` virtual keyboard adaptation)
-- [x] Internationalization (all 13 Structorizer Desktop languages)
-- [x] Self-hosting documentation (`main/web/packaging/HOSTING.md`, `main/web/docs/`)
-
----
-
-## Phase 5 – Native Wrappers ✅ (2026-11-18)
-- [x] Capacitor configuration (`main/web/capacitor.config.json`) & iPadOS native packaging guide (`docs/ipados-native-guide.md`) with `.nsd`/`.arrz` `UTExportedTypeDeclarations`
-
----
-
-## Success Metrics (first public version) ✅ (2026-11-18)
-- [x] Can create, edit, save and execute typical school algorithms
-- [x] Runs completely offline
-- [x] Looks modern and feels fast
-- [x] Easy to self-host (static files)
-
----
-
-## Notes for the Agent
-Always prefer working software over perfect architecture.
-Keep the original visual language of Nassi-Shneiderman diagrams recognizable.
-Document every major design decision.
+## 4. Native App Store & Desktop Bundles
+- [ ] **Signed iPadOS / iOS App Store build (`.ipa`)**: Package the Capacitor project (`main/web/capacitor.config.json`) via Xcode with native Files app document-in-place editing.
+- [ ] **Optional Tauri Desktop binary**: Lightweight native Windows / macOS / Linux wrapper around `main/web/dist`.

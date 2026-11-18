@@ -47,16 +47,19 @@
           <h2 id="what-it-does">What it does</h2>
           <ul>
             <li>All element types of Structorizer Desktop 3.32: instruction, IF, CASE, FOR, WHILE, REPEAT, endless loop, call, exit (jump), parallel section and try-catch.</li>
-            <li>Programs, subroutines and includable diagrams, several open at once (<a href="#arranger">Arranger index</a>).</li>
+            <li>Programs, subroutines and includable diagrams, several open at once (<a href="#arranger">Arranger index &amp; 2D board</a>, <code>.arrz</code> and <code>.arr</code> archives).</li>
             <li>Opens and saves the <code>.nsd</code> files of Structorizer Desktop, so teachers and pupils can switch between both.</li>
+            <li><strong>Executor &amp; Debugger</strong> (<kbd>Ctrl</kbd>+<kbd>R</kbd>): step-by-step and continuous execution with editable variable watch, breakpoints (<kbd>Ctrl</kbd>+<kbd>B</kbd>), call stack, subroutine calls and coverage overlay.</li>
+            <li><strong>Turtleizer Studio</strong> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>): interactive turtle graphics with pan/zoom, coordinate grid, dockable or floating window, and SVG/PNG export.</li>
+            <li><strong>Static Analyser &amp; Content Assist</strong> (<kbd>F3</kbd>): live <code>A01</code>–<code>A09</code> diagram checks, warning triangles on the canvas, and <kbd>Tab</kbd> autocomplete chips in the editor.</li>
             <li>Pictures as PNG, PNG (multiple), EMF, PDF and SVG, and printing.</li>
-            <li>A live <a href="#code-export">Code preview</a> and code export to Python, Java, JavaScript, C, C++, C#, Pascal, PHP and Bash.</li>
-            <li>Find and replace, transmute, outsource, collapse, disable, undo and redo, the desktop keyboard shortcuts.</li>
-            <li>All 13 UI languages of Structorizer Desktop (English default; lazy-loaded chunks), light and dark mode, touch and pencil friendly.</li>
-            <li>Tools for AI assistants through the <a href="#mcp">MCP server</a>.</li>
+            <li>A live <a href="#code-export">Code preview</a> and code export to Python, Java, JavaScript, C, C++, C#, Pascal, PHP and Bash (including Turtleizer code translation).</li>
+            <li>Find and replace, contiguous multi-selection (<kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd>), branch head colours, transmute, outsource, collapse, disable, undo and redo.</li>
+            <li>All 13 UI languages of Structorizer Desktop, light and dark mode, offline PWA, and first-class iPadOS / Apple Pencil / Magic Keyboard support.</li>
+            <li>21 tools for AI assistants through the <a href="#mcp">MCP server</a> (over <code>stdio</code> and Streamable HTTP).</li>
           </ul>
           <h2 id="not-yet">Not yet included</h2>
-          <p>The Executor (running and debugging diagrams), the Turtleizer, the Analyser and source code import follow in later versions. They appear in the <em>Debug</em> menu as "planned". See the <a href="#roadmap">roadmap</a>.</p>
+          <p>Source code import (converting existing Python/C/Java/Pascal files into diagrams) and LaTeX StrukTeX export are listed on the <a href="#roadmap">roadmap</a>.</p>
         </article>
 
         <article data-page="getting-started" data-group="Start here" data-title="Getting started" data-lead="Your first diagram in two minutes.">
@@ -81,14 +84,16 @@
             <li><strong>Menu bar</strong> with the menus of Structorizer Desktop 3.32: File, Edit, View, Diagram, Preferences, Debug, Help. On narrow screens they are collected in one <em>Menu</em> button.</li>
             <li><strong>Toolbar</strong> with one button per element type, then edit, delete, cut, copy, paste, move, disable and collapse, and the zoom.</li>
             <li><strong>Work area</strong> with the diagram. Right click or long press opens the context menu.</li>
-            <li><strong>Side panel</strong> on the right with two tabs, <em>Arranger index</em> and <em>Code preview</em>. Open or close it with the panel button at the top right, <kbd>Shift</kbd>+<kbd>F3</kbd> or <kbd>Shift</kbd>+<kbd>F4</kbd>. Drag its left edge to change the width.</li>
+            <li><strong>Side panel</strong> (Right or Left) with two tabs, <em>Arranger index</em> (including the <em>Analyser</em> findings list) and <em>Code preview</em>. Open or close it with the panel button at the top right, <kbd>Shift</kbd>+<kbd>F3</kbd> or <kbd>Shift</kbd>+<kbd>F4</kbd>. Drag its inner edge to resize (touch-friendly on iPad), or click <code>⇄</code> to flip sides.</li>
+            <li><strong>Executor panel</strong> (<kbd>Ctrl</kbd>+<kbd>R</kbd>, dockable at Bottom, Top, Left or Right): resizable debugger bar with Run/Step/Pause/Stop, speed slider, breakpoints, variable watch, output console, and optional docked Turtleizer.</li>
             <li><strong>Status bar</strong> showing the selection and whether the diagram is saved in the browser.</li>
           </ul>
-          <h2 id="editing">Editing elements</h2>
-          <p>Double-click an element or press <kbd>Enter</kbd> to open the element editor: text, comment, one of the ten desktop colours and "disabled". Multi-line instructions hold one statement per line. A line ending with <code>\</code> continues on the next line.</p>
-          <p><em>Diagram › Transmute</em> (<kbd>Ctrl</kbd>+<kbd>T</kbd>) splits a multi-line instruction into single ones, or changes instruction ⇄ call ⇄ exit and WHILE ⇄ REPEAT. <em>Diagram › Outsource</em> moves the selected element into a new subroutine and replaces it with a call.</p>
+          <h2 id="editing">Editing elements &amp; Content Assist</h2>
+          <p>Double-click an element or press <kbd>Enter</kbd> to open the element editor: text, comment, one of the ten desktop colours and "disabled". As you type, <strong>Content Assist</strong> chips suggest diagram variables, open subroutines, keywords and built-in/Turtleizer functions (press <kbd>Tab</kbd> or tap a chip to insert). Live static analysis warnings are shown directly below the text field.</p>
+          <p>Hold <kbd>Shift</kbd> with <kbd>↑</kbd>/<kbd>↓</kbd> or tap with <kbd>Shift</kbd> to select a contiguous range of elements. Tap a branch header triangle of an IF or CASE element to colour individual branch headers.</p>
+          <p><em>Diagram › Transmute</em> (<kbd>Ctrl</kbd>+<kbd>T</kbd>) merges multiple selected instructions into one, splits a multi-line instruction into single ones, or changes instruction ⇄ call ⇄ exit and WHILE ⇄ REPEAT. <em>Diagram › Outsource</em> moves the selected element(s) into a new subroutine and replaces them with a call.</p>
           <h2 id="view-options">View options</h2>
-          <p>The <em>View</em> menu has the desktop switches: show comments, comments plus texts, switch text/comments, highlight variables (<kbd>F4</kbd>) and show operators in C style.</p>
+          <p>The <em>View</em> menu has the desktop switches: show comments, comments plus texts, switch text/comments, highlight variables (<kbd>F4</kbd>), analyse structogram (<kbd>F3</kbd>), show operators in C style, and the 2D Arranger board (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>).</p>
         </article>
 
         <article data-page="elements" data-group="Start here" data-title="Elements and syntax" data-lead="The element types and the text you write into them.">
@@ -154,15 +159,16 @@
           <p>Like in the desktop version, the result is a starting point: check types and library calls before you compile it.</p>
         </article>
 
-        <article data-page="arranger" data-group="Files and export" data-title="Arranger index" data-lead="Several diagrams at once.">
-          <p>The <em>Arranger index</em> tab lists all open diagrams, grouped into main programs, subroutines (with their number of parameters) and includables. Click a name to edit that diagram, the × closes it. A dot marks unsaved changes.</p>
-          <p>Subroutines in the index are used by the Code preview for calls, and includable diagrams named in a diagram's include list (diagram editor) are exported at the start of the code.</p>
+        <article data-page="arranger" data-group="Files and export" data-title="Arranger &amp; .arrz archives" data-lead="Several diagrams at once: index list, 2D board and portable .arrz archives.">
+          <p>The <em>Arranger index</em> tab lists all open diagrams, grouped into main programs, subroutines (with their number of parameters) and includables, followed by the live <em>Analyser</em> findings list (<kbd>F3</kbd>). Click a name to edit that diagram, the × closes it. A dot marks unsaved changes.</p>
+          <p>Click <em>Arranger board</em> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>) to switch to the interactive 2D surface where all open diagrams appear as movable, pinnable cards. Export or open portable <code>.arrz</code> archives (ZIP containing <code>.nsd</code> files and <code>.arr</code> coordinates) via <em>File › Export › Arrangement (.arrz)</em> or <em>File › Open</em>.</p>
+          <p>Subroutines in the index are resolved automatically by the Executor and Code preview, and includable diagrams named in a diagram's include list are executed/exported first.</p>
         </article>
 
-        <article data-page="preferences" data-group="Settings" data-title="Preferences" data-lead="Language, appearance, view, code export, keywords and data.">
+        <article data-page="preferences" data-group="Settings" data-title="Preferences" data-lead="Language, appearance, view, panel positions, code export, keywords and data.">
           <ul>
             <li><strong>General</strong>: language (English default, plus 12 Structorizer Desktop languages: German, French, Dutch, Luxembourgish, Spanish, Brazilian Portuguese, Italian, Simplified &amp; Traditional Chinese, Czech, Russian, Polish), appearance (system, light, dark), whether the diagram itself is drawn dark in dark mode, simplified toolbar, confirmation before deleting structured elements.</li>
-            <li><strong>View</strong>: the switches of the View menu.</li>
+            <li><strong>View</strong>: the switches of the View menu (comments, variable highlighting, C operators, static analyser warnings) plus <strong>Side panel position</strong> (<em>Right</em> / <em>Left</em>) and <strong>Executor panel position</strong> (<em>Bottom</em> / <em>Top</em> / <em>Left</em> / <em>Right</em>).</li>
             <li><strong>Code export</strong>: favourite language, involve called subroutines.</li>
             <li><strong>Parser keywords</strong>: the keywords of the current diagram (<code>INPUT</code>, <code>for</code>, <code>to</code>, <code>while</code> ...), optionally as the default for new diagrams.</li>
             <li><strong>Data</strong>: save preferences to a file, load them on another computer, reset them, or delete all data stored in this browser.</li>
@@ -171,24 +177,27 @@
           <p>"System" follows the setting of the device. In dark mode the diagram is drawn on a dark background with lighter colours; switch this off under <em>General</em> if you prefer white paper. Exported pictures and prints are always light.</p>
         </article>
 
-        <article data-page="keyboard" data-group="Settings" data-title="Keyboard shortcuts" data-lead="The key bindings of Structorizer Desktop 3.32.">
+        <article data-page="keyboard" data-group="Settings" data-title="Keyboard shortcuts" data-lead="The key bindings of Structorizer Desktop 3.32 and iPad Magic Keyboard.">
           <table>
             <thead><tr><th>Action</th><th>Keys</th></tr></thead>
             <tbody>
-              <tr><td>Insert instruction / IF / CASE / FOR / WHILE / REPEAT</td><td><kbd>F5</kbd> <kbd>F6</kbd> <kbd>F10</kbd> <kbd>F7</kbd> <kbd>F8</kbd> <kbd>F9</kbd></td></tr>
-              <tr><td>Insert endless loop / parallel / try</td><td><kbd>Ctrl</kbd>+<kbd>F7</kbd> / <kbd>F6</kbd> / <kbd>F5</kbd></td></tr>
-              <tr><td>Insert call / exit</td><td><kbd>F11</kbd> / <kbd>F12</kbd></td></tr>
+              <tr><td>Insert instruction / IF / CASE / FOR / WHILE / REPEAT</td><td><kbd>F5</kbd> <kbd>F6</kbd> <kbd>F10</kbd> <kbd>F7</kbd> <kbd>F8</kbd> <kbd>F9</kbd> (iPad: <kbd>⌥1</kbd>..<kbd>⌥6</kbd>)</td></tr>
+              <tr><td>Insert endless loop / parallel / try</td><td><kbd>Ctrl</kbd>+<kbd>F7</kbd> / <kbd>F6</kbd> / <kbd>F5</kbd> (iPad: <kbd>⌥7</kbd>, <kbd>⌥0</kbd>, <kbd>⌥-</kbd>)</td></tr>
+              <tr><td>Insert call / exit</td><td><kbd>F11</kbd> / <kbd>F12</kbd> (iPad: <kbd>⌥8</kbd>, <kbd>⌥9</kbd>)</td></tr>
               <tr><td>Insert before instead of after</td><td>add <kbd>Shift</kbd></td></tr>
               <tr><td>Edit, delete</td><td><kbd>Enter</kbd>, <kbd>Del</kbd></td></tr>
-              <tr><td>Undo, redo</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd>, <kbd>Ctrl</kbd>+<kbd>Y</kbd></td></tr>
+              <tr><td>Undo, redo</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd>, <kbd>Ctrl</kbd>+<kbd>Y</kbd> (iPad touch: 2-finger / 3-finger tap)</td></tr>
               <tr><td>Cut, copy, paste, duplicate</td><td><kbd>Ctrl</kbd>+<kbd>X</kbd> <kbd>C</kbd> <kbd>V</kbd> <kbd>D</kbd></td></tr>
               <tr><td>Move element up / down</td><td><kbd>Ctrl</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></td></tr>
-              <tr><td>Select neighbour element</td><td>arrow keys</td></tr>
+              <tr><td>Select neighbour / extend range</td><td>arrow keys / <kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd></td></tr>
               <tr><td>Transmute, outsource, disable</td><td><kbd>Ctrl</kbd>+<kbd>T</kbd>, <kbd>Ctrl</kbd>+<kbd>F11</kbd>, <kbd>Ctrl</kbd>+<kbd>7</kbd></td></tr>
+              <tr><td>Executor, Turtleizer, Breakpoint</td><td><kbd>Ctrl</kbd>+<kbd>R</kbd>, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>, <kbd>Ctrl</kbd>+<kbd>B</kbd></td></tr>
               <tr><td>Collapse, expand</td><td>Numpad <kbd>−</kbd> / <kbd>+</kbd></td></tr>
               <tr><td>New, open, save, save as, save all</td><td><kbd>Ctrl</kbd>+<kbd>N</kbd> <kbd>O</kbd> <kbd>S</kbd>, <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>S</kbd>, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td></tr>
               <tr><td>PNG, print, find</td><td><kbd>Ctrl</kbd>+<kbd>E</kbd>, <kbd>Ctrl</kbd>+<kbd>P</kbd>, <kbd>Ctrl</kbd>+<kbd>F</kbd></td></tr>
-              <tr><td>Highlight variables, Arranger index, Code preview</td><td><kbd>F4</kbd>, <kbd>Shift</kbd>+<kbd>F3</kbd>, <kbd>Shift</kbd>+<kbd>F4</kbd></td></tr>
+              <tr><td>Analyse structogram, highlight variables</td><td><kbd>F3</kbd>, <kbd>F4</kbd></td></tr>
+              <tr><td>Arranger index, Code preview, Arranger board</td><td><kbd>Shift</kbd>+<kbd>F3</kbd>, <kbd>Shift</kbd>+<kbd>F4</kbd>, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd></td></tr>
+              <tr><td>Radial InkDish palette, Fit to window</td><td><kbd>Ctrl</kbd>+<kbd>K</kbd> (<kbd>⌘K</kbd>), <kbd>Ctrl</kbd>+<kbd>9</kbd> (<kbd>⌘9</kbd>)</td></tr>
               <tr><td>User guide, key bindings, about</td><td><kbd>F1</kbd>, <kbd>Alt</kbd>+<kbd>F1</kbd>, <kbd>Shift</kbd>+<kbd>F1</kbd></td></tr>
             </tbody>
           </table>
@@ -222,7 +231,8 @@ node dist/cli.js mcp --root "C:\Users\me\Documents\Diagrams"</code></pre>
               <tr><td><code>list-diagrams</code></td><td>lists the <code>.nsd</code> files under the root folder</td></tr>
               <tr><td><code>read-diagram</code></td><td>reads a diagram as an outline, JSON tree or single element subtree</td></tr>
               <tr><td><code>diagram-info</code></td><td>header, parameters, variables, includes, counts and warning summary</td></tr>
-              <tr><td><code>validate-diagram</code></td><td>checks for empty branches, unparsed loop headers and missing subroutines</td></tr>
+              <tr><td><code>validate-diagram</code>, <code>analyse-diagram</code></td><td>structural validation and static analysis (<code>A01</code>–<code>A09</code>)</td></tr>
+              <tr><td><code>execute-diagram</code></td><td>runs a diagram headlessly with inputs/arguments, returning outputs, variables, coverage and Turtleizer segments</td></tr>
               <tr><td><code>find-in-diagrams</code>, <code>replace-in-diagram</code></td><td>searches across <code>.nsd</code> files or replaces text in a diagram</td></tr>
               <tr><td><code>create-diagram</code>, <code>update-diagram</code></td><td>creates a diagram or updates header, signature, type, frame, includes and metadata</td></tr>
               <tr><td><code>add-element</code>, <code>update-element</code></td><td>inserts or updates an element's text, comment, colour, disabled or collapsed state</td></tr>
@@ -230,9 +240,10 @@ node dist/cli.js mcp --root "C:\Users\me\Documents\Diagrams"</code></pre>
               <tr><td><code>batch</code></td><td>runs multiple editing operations on a diagram in a single atomic save</td></tr>
               <tr><td><code>export-code</code></td><td>generates Python, Java, JavaScript, C, C++, C#, Pascal, PHP or Bash (auto-resolving workspace subroutines)</td></tr>
               <tr><td><code>export-picture</code></td><td>writes SVG or EMF (with light/dark theme, comments, highlighting and optional inline SVG)</td></tr>
+              <tr><td><code>pack-arrz</code>, <code>unpack-arrz</code></td><td>packs or extracts portable <code>.arrz</code> arrangement archives</td></tr>
             </tbody>
           </table>
-          <p>The server also exposes MCP resources (<code>structorizer://reference/syntax</code> and <code>structorizer://diagram/{+path}</code>) and prompts (<code>create-algorithm</code>, <code>review-diagram</code>).</p>
+          <p>The server supports both <code>stdio</code> and Streamable HTTP (<code>--http &lt;port&gt;</code>), and exposes MCP resources (<code>structorizer://reference/syntax</code> and <code>structorizer://diagram/{+path}</code>) and prompts (<code>create-algorithm</code>, <code>review-diagram</code>).</p>
           <p>The tools use the same code as the editor (file format, layout and code export), so a diagram written by an assistant opens unchanged in Structorizer Web and Structorizer Desktop.</p>
         </article>
 
@@ -256,15 +267,14 @@ npm run build</code></pre>
           <p>Opening <code>index.html</code> directly from the file system does not work in every browser; use a web server, for example XAMPP: <code>http://localhost/Structorizer/main/web/dist/</code>.</p>
         </article>
 
-        <article data-page="roadmap" data-group="The project" data-title="Roadmap" data-lead="What comes next.">
+        <article data-page="roadmap" data-group="The project" data-title="Roadmap" data-lead="Open items for future releases.">
           <ol>
-            <li><strong>Executor</strong>: run diagrams step by step with variable view, breakpoints and call stack, with its own interpreter for the Structorizer language (no <code>eval</code>).</li>
-            <li><strong>Turtleizer</strong> for graphical algorithms.</li>
-            <li><strong>Analyser</strong> warnings and runtime analysis (execution counts, test coverage).</li>
-            <li>Install as an app (PWA) and offline cache.</li>
-            <li>More code languages and source code import.</li>
+            <li><strong>Source code import</strong>: parse existing Python, C/Java/JavaScript and Pascal source files into <code>.nsd</code> diagrams, plus PapDesigner (<code>.pap</code>) import.</li>
+            <li><strong>Additional academic exports</strong>: StrukTeX / LaTeX (<code>\begin{struktogramm}</code>), Oberon, Perl and KSH.</li>
+            <li><strong>Arranger dependency graph</strong>: draw visual call/include arrows between cards on the 2D Arranger board and batch-export multi-file code archives.</li>
+            <li><strong>Signed native bundles</strong>: App Store <code>.ipa</code> via Capacitor and optional lightweight desktop binary via Tauri.</li>
           </ol>
-          <p>The detailed plan is in the repository (<code>info/plan.md</code>), the changes in <code>CHANGELOG.md</code>.</p>
+          <p>The open roadmap is in <code>info/04-roadmap.md</code>, the release history in <code>CHANGELOG.md</code>.</p>
         </article>
 
         <article data-page="licence" data-group="The project" data-title="Licence and credits" data-lead="Free software under the GPL.">

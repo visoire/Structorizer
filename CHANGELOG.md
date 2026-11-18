@@ -12,7 +12,7 @@ build number. Desktop issue numbers refer to
 
 ## [3.32.35-web.8] – 2026-11-18 (corresponds to Structorizer 3.32-35)
 
-Completed Phase 3 (Static Analyser, Content Assist, 2D Arranger Board, `.arr`/`.arrz` archives, Turtleizer code export), Phase 5 (Capacitor iPadOS native wrapper configuration & guide), and MCP Server execution/analysis/HTTP enhancements.
+Added Static Analyser (`A01`–`A09`), Content Assist, 2D Arranger Board (`.arr`/`.arrz` archives), Turtleizer Studio & code export, resizable/dockable Executor and Side Panel across all 13 locales, Capacitor iPadOS native wrapper configuration, and MCP Server execution/analysis/HTTP enhancements.
 
 ### Added
 - **Phase 3a Static Analyser & Content Assist (`src/core/lang/analyser.ts`, `src/ui/DiagramView.tsx`, `src/ui/SidePanel.tsx`, `src/ui/ElementEditor.tsx`)**:
@@ -31,7 +31,7 @@ Completed Phase 3 (Static Analyser, Content Assist, 2D Arranger Board, `.arr`/`.
 
 ## [3.32.35-web.7] – 2026-11-18 (corresponds to Structorizer 3.32-35)
 
-Completed Phase 1e and Phase 2 of `info/plan.md`: full Executor & Debugger, Turtleizer, Pratt AST parser, multi-selection, branch head colouring, PWA offline service worker, and comprehensive iPadOS / Apple Pencil / Magic Keyboard integration.
+Added full Executor & Debugger, Turtleizer, Pratt AST parser, multi-selection, branch head colouring, PWA offline service worker, and comprehensive iPadOS / Apple Pencil / Magic Keyboard integration.
 
 ### Added
 - **Phase 2 Language & AST Parser (`src/core/lang/lexer.ts`, `parser.ts`, `docs/language-spec.md`)**:
