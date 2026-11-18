@@ -14,7 +14,7 @@ current browser, including Safari on iPad (desktop issue
   resources. Both builds enforce this with a Content Security Policy (`connect-src 'none'`).
 - **Compatible**: reads and writes the `.nsd` files of Structorizer Desktop 3.32.
 
-Version **3.32-35** (web build `3.32.35-web.4`) · [Changelog](CHANGELOG.md) ·
+Version **3.32-35** (web build `3.32.35-web.5`) · [Changelog](CHANGELOG.md) ·
 [Plan](info/plan.md) · [Roadmap](info/04-roadmap.md)
 
 <p align="center">
@@ -90,8 +90,10 @@ node dist/cli.js mcp --root /path/to/diagrams
 claude mcp add structorizer -- node /path/to/main/mcp/dist/cli.js mcp --root /path/to/diagrams
 ```
 
-Tools: `list-diagrams`, `read-diagram`, `diagram-info`, `create-diagram`, `add-element`,
-`update-element`, `delete-element`, `move-element`, `export-code`, `export-picture`.
+Tools (`17` tools, all annotated, plus MCP resources & prompts): `list-commands`, `list-diagrams`,
+`read-diagram`, `diagram-info`, `validate-diagram`, `find-in-diagrams`, `replace-in-diagram`,
+`create-diagram`, `update-diagram`, `add-element`, `update-element`, `delete-element`,
+`move-element`, `transmute-element`, `batch`, `export-code`, `export-picture`.
 
 ### Project layout
 

@@ -402,3 +402,4 @@ export const useStore = create<State>((set, get) => ({
 }));
 
 export const isDirty = (s: State) => s.diagram !== s.savedDiagram && (s.savedDiagram !== null || s.past.length > 0);
+export const anyDirty = (s: State) => s.allDocs().some((d) => d.dirty);

@@ -274,14 +274,25 @@ export async function copyPngToClipboard(d: Diagram): Promise<boolean> {
   }
 }
 
+/** Populate the hidden print container with a clean light-mode SVG of the diagram. */
+export function preparePrintArea(d: Diagram): HTMLElement | null {
+  const host = document.getElementById('print-area');
+  if (!host) return null;
+  host.innerHTML = sceneToSvg(exportScene(d), { title: d.text[0] });
+  return host;
+}
+
+export function clearPrintArea(): void {
+  const host = document.getElementById('print-area');
+  if (host) host.innerHTML = '';
+}
+
 /** Print only the diagram (print stylesheet hides the app). */
 export function printDiagram(d: Diagram): void {
-  const host = document.getElementById('print-area');
+  const host = preparePrintArea(d);
   if (!host) return;
-  host.innerHTML = sceneToSvg(exportScene(d), { title: d.text[0] });
-  const done = () => { host.innerHTML = ''; window.removeEventListener('afterprint', done); };
-  window.addEventListener('afterprint', done);
-  setTimeout(() => window.print(), 50);
+  host.getBoundingClientRect();
+  window.print();
 }
 
 // ------------------------------------------------------------------ code

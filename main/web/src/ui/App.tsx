@@ -3,14 +3,14 @@ import { useEffect, useState } from 'react';
 import { findById, STRUCTURED_KINDS, type ElementKind } from '../core/model';
 import { parseSignature } from '../core/lang/analyze';
 import { htmlLang, useTranslator, type TKey } from '../i18n';
-import { isDirty, useStore } from '../store/diagramStore';
+import { anyDirty, isDirty, useStore } from '../store/diagramStore';
 import { resolvedTheme, usePrefs } from '../store/prefsStore';
 import appIcon from '../assets/app-icon.png';
 import { actions } from './actions';
 import { ContextMenu, Dialogs } from './Dialogs';
 import { DiagramView } from './DiagramView';
 import { DiagramEditor, ElementEditor } from './ElementEditor';
-import { loadSession, saveSession } from './exporters';
+import { clearPrintArea, loadSession, preparePrintArea, saveSession } from './exporters';
 import { Icon, KindIcon } from './icons';
 import { applyUiFont } from './fonts';
 import { MenuBar } from './MenuBar';
@@ -73,10 +73,22 @@ export function App() {
     return () => clearTimeout(h);
   }, [s.diagram, s.docs, s.fileName, restored]);
   useEffect(() => {
-    const warn = (e: BeforeUnloadEvent) => { if (!storageOk && isDirty(useStore.getState())) e.preventDefault(); };
+    const warn = (e: BeforeUnloadEvent) => {
+      if (!anyDirty(useStore.getState())) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    const onBeforePrint = () => { preparePrintArea(useStore.getState().diagram); };
+    const onAfterPrint = () => { clearPrintArea(); };
     window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [storageOk]);
+    window.addEventListener('beforeprint', onBeforePrint);
+    window.addEventListener('afterprint', onAfterPrint);
+    return () => {
+      window.removeEventListener('beforeunload', warn);
+      window.removeEventListener('beforeprint', onBeforePrint);
+      window.removeEventListener('afterprint', onAfterPrint);
+    };
+  }, []);
 
   // ---------- toast auto-hide
   useEffect(() => {
@@ -156,77 +168,79 @@ export function App() {
     : '';
 
   return (
-    <div className={'app' + (p.panelOpen ? ' with-panel' : '')}>
-      <header className="topbar">
-        <div className="brand">
-          <img className="logo" src={appIcon} alt="" width={22} height={22} aria-hidden="true" />
-          <span className="brand-name">Structorizer</span>
-        </div>
-        <MenuBar />
-        <div className="doc-title" title={s.fileName ?? s.diagram.text.join(' ')}>
-          <span className="doc-name">{s.fileName ?? title}</span>{dirty && <span className="dot" aria-label={t('unsaved')}> •</span>}
-        </div>
-        <div className="top-quick">
-          <ToolButton label={t('undo')} disabled={s.past.length === 0} onClick={actions.undo}><Icon name="undo" /></ToolButton>
-          <ToolButton label={t('redo')} disabled={s.future.length === 0} onClick={actions.redo}><Icon name="redo" /></ToolButton>
-          <ToolButton label={t('save')} onClick={() => void actions.save(false)}><Icon name="save" /></ToolButton>
-          <ToolButton label={t('openPanel')} pressed={p.panelOpen} onClick={() => actions.togglePanel()}>
-            <Icon name="panel" />{docCount > 1 && <span className="badge">{docCount}</span>}
-          </ToolButton>
-        </div>
-      </header>
+    <>
+      <div className={'app' + (p.panelOpen ? ' with-panel' : '')}>
+        <header className="topbar">
+          <div className="brand">
+            <img className="logo" src={appIcon} alt="" width={22} height={22} aria-hidden="true" />
+            <span className="brand-name">Structorizer</span>
+          </div>
+          <MenuBar />
+          <div className="doc-title" title={s.fileName ?? s.diagram.text.join(' ')}>
+            <span className="doc-name">{s.fileName ?? title}</span>{dirty && <span className="dot" aria-label={t('unsaved')}> •</span>}
+          </div>
+          <div className="top-quick">
+            <ToolButton label={t('undo')} disabled={s.past.length === 0} onClick={actions.undo}><Icon name="undo" /></ToolButton>
+            <ToolButton label={t('redo')} disabled={s.future.length === 0} onClick={actions.redo}><Icon name="redo" /></ToolButton>
+            <ToolButton label={t('save')} onClick={() => void actions.save(false)}><Icon name="save" /></ToolButton>
+            <ToolButton label={t('openPanel')} pressed={p.panelOpen} onClick={() => actions.togglePanel()}>
+              <Icon name="panel" />{docCount > 1 && <span className="badge">{docCount}</span>}
+            </ToolButton>
+          </div>
+        </header>
 
-      <div className="toolbar" role="toolbar" aria-label={t('elements')}>
-        <div className="tool-group"><div className="tool-row">
-          {KINDS.map((k) => (
-            <ToolButton key={k} label={t(('kind.' + k) as TKey)} onClick={(e) => actions.insert(k, e.shiftKey)}><KindIcon kind={k} /></ToolButton>
-          ))}
-          <ToolButton label={t('insertBefore')} pressed={s.insertBefore} onClick={() => s.setInsertBefore(!s.insertBefore)}><Icon name="before" /></ToolButton>
-        </div><span className="group-label">{t('grpInsert')}</span></div>
-        {!p.simplifiedToolbar && (
+        <div className="toolbar" role="toolbar" aria-label={t('elements')}>
           <div className="tool-group"><div className="tool-row">
-            <ToolButton label={t('edit')} onClick={actions.editSelected}><Icon name="edit" /></ToolButton>
-            <ToolButton label={t('delete')} disabled={!hasEl} onClick={actions.remove}><Icon name="delete" /></ToolButton>
-            <ToolButton label={t('cut')} disabled={!hasEl} onClick={actions.cut}><Icon name="cut" /></ToolButton>
-            <ToolButton label={t('copy')} disabled={!hasEl} onClick={actions.copy}><Icon name="copy" /></ToolButton>
-            <ToolButton label={t('paste')} disabled={!s.clipboard} onClick={actions.paste}><Icon name="paste" /></ToolButton>
-            <ToolButton label={t('moveUp')} disabled={!hasEl} onClick={actions.moveUp}><Icon name="up" /></ToolButton>
-            <ToolButton label={t('moveDown')} disabled={!hasEl} onClick={actions.moveDown}><Icon name="down" /></ToolButton>
-            <ToolButton label={t('disable')} disabled={!hasEl} pressed={selEl?.disabled} onClick={actions.disable}><Icon name="disable" /></ToolButton>
-            <ToolButton label={selEl?.collapsed ? t('expand') : t('collapse')} disabled={!selEl || !STRUCTURED_KINDS.has(selEl.kind)}
-              pressed={!!selEl?.collapsed} onClick={actions.toggleCollapse}><Icon name="collapse" /></ToolButton>
-          </div><span className="group-label">{t('grpEdit')}</span></div>
+            {KINDS.map((k) => (
+              <ToolButton key={k} label={t(('kind.' + k) as TKey)} onClick={(e) => actions.insert(k, e.shiftKey)}><KindIcon kind={k} /></ToolButton>
+            ))}
+            <ToolButton label={t('insertBefore')} pressed={s.insertBefore} onClick={() => s.setInsertBefore(!s.insertBefore)}><Icon name="before" /></ToolButton>
+          </div><span className="group-label">{t('grpInsert')}</span></div>
+          {!p.simplifiedToolbar && (
+            <div className="tool-group"><div className="tool-row">
+              <ToolButton label={t('edit')} onClick={actions.editSelected}><Icon name="edit" /></ToolButton>
+              <ToolButton label={t('delete')} disabled={!hasEl} onClick={actions.remove}><Icon name="delete" /></ToolButton>
+              <ToolButton label={t('cut')} disabled={!hasEl} onClick={actions.cut}><Icon name="cut" /></ToolButton>
+              <ToolButton label={t('copy')} disabled={!hasEl} onClick={actions.copy}><Icon name="copy" /></ToolButton>
+              <ToolButton label={t('paste')} disabled={!s.clipboard} onClick={actions.paste}><Icon name="paste" /></ToolButton>
+              <ToolButton label={t('moveUp')} disabled={!hasEl} onClick={actions.moveUp}><Icon name="up" /></ToolButton>
+              <ToolButton label={t('moveDown')} disabled={!hasEl} onClick={actions.moveDown}><Icon name="down" /></ToolButton>
+              <ToolButton label={t('disable')} disabled={!hasEl} pressed={selEl?.disabled} onClick={actions.disable}><Icon name="disable" /></ToolButton>
+              <ToolButton label={selEl?.collapsed ? t('expand') : t('collapse')} disabled={!selEl || !STRUCTURED_KINDS.has(selEl.kind)}
+                pressed={!!selEl?.collapsed} onClick={actions.toggleCollapse}><Icon name="collapse" /></ToolButton>
+            </div><span className="group-label">{t('grpEdit')}</span></div>
+          )}
+          <div className="tool-group push"><div className="tool-row">
+            <ToolButton label={t('zoomOut')} onClick={actions.zoomOut}><Icon name="zoomOut" /></ToolButton>
+            <button type="button" className="zoom-label" title={t('zoomReset')} onClick={actions.zoomReset}>{Math.round(s.zoom * 100)}%</button>
+            <ToolButton label={t('zoomIn')} onClick={actions.zoomIn}><Icon name="zoomIn" /></ToolButton>
+            <ToolButton label={t('zoomFit')} onClick={actions.zoomFit}><Icon name="zoomFit" /></ToolButton>
+          </div><span className="group-label">{t('grpView')}</span></div>
+        </div>
+
+        <main className="workspace">
+          <DiagramView />
+          <SidePanel />
+        </main>
+
+        <footer className="statusbar">
+          <span className="status-left">
+            {sel ? (selEl ? t(('kind.' + selEl.kind) as TKey) : sel.t === 'root' ? t('diagramProps').replace(/\s*\.\.\.$/, '') : '∅') : t('selectHint')}
+            {selComment ? ` — ${selComment}` : ''}
+          </span>
+          <span className={'status-right' + (storageOk ? '' : ' warn')}>{storageOk ? t('autosaved') : t('unsaved')}</span>
+        </footer>
+
+        <ElementEditor />
+        <DiagramEditor />
+        <Dialogs />
+        <ContextMenu />
+
+        {s.message && (
+          <div className={'toast ' + s.message.kind} role="status" onClick={() => useStore.setState({ message: null })}>{s.message.text}</div>
         )}
-        <div className="tool-group push"><div className="tool-row">
-          <ToolButton label={t('zoomOut')} onClick={actions.zoomOut}><Icon name="zoomOut" /></ToolButton>
-          <button type="button" className="zoom-label" title={t('zoomReset')} onClick={actions.zoomReset}>{Math.round(s.zoom * 100)}%</button>
-          <ToolButton label={t('zoomIn')} onClick={actions.zoomIn}><Icon name="zoomIn" /></ToolButton>
-          <ToolButton label={t('zoomFit')} onClick={actions.zoomFit}><Icon name="zoomFit" /></ToolButton>
-        </div><span className="group-label">{t('grpView')}</span></div>
       </div>
-
-      <main className="workspace">
-        <DiagramView />
-        <SidePanel />
-      </main>
-
-      <footer className="statusbar">
-        <span className="status-left">
-          {sel ? (selEl ? t(('kind.' + selEl.kind) as TKey) : sel.t === 'root' ? t('diagramProps').replace(/\s*\.\.\.$/, '') : '∅') : t('selectHint')}
-          {selComment ? ` — ${selComment}` : ''}
-        </span>
-        <span className={'status-right' + (storageOk ? '' : ' warn')}>{storageOk ? t('autosaved') : t('unsaved')}</span>
-      </footer>
-
-      <ElementEditor />
-      <DiagramEditor />
-      <Dialogs />
-      <ContextMenu />
       <div id="print-area" aria-hidden="true" />
-
-      {s.message && (
-        <div className={'toast ' + s.message.kind} role="status" onClick={() => useStore.setState({ message: null })}>{s.message.text}</div>
-      )}
-    </div>
+    </>
   );
 }

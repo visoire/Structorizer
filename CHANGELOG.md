@@ -10,6 +10,20 @@ build number. Desktop issue numbers refer to
 
 ## [Unreleased]
 
+## [3.32.35-web.5] – 2026-11-18 (corresponds to Structorizer 3.32-35)
+
+Fixed empty PDF printing, upgraded UI accent to Structorizer icon yellow with tactile active toggle tiles, added unsaved-changes leave protection, and expanded the MCP server on the Craft model.
+
+### Fixed
+- **Print / Save as PDF**: moved `#print-area` outside `.app` (so `.app { display: none !important; }` in `@media print` no longer hides the printed SVG), added `beforeprint`/`afterprint` listeners so browser-initiated printing works too, and made `printDiagram()` trigger synchronous layout before `window.print()`.
+- **Unsaved-changes leave prompt**: `beforeunload` now warns whenever any open diagram has unsaved changes (`anyDirty`), even when browser autosave succeeds.
+
+### Changed
+- **UI design & accent colour**: replaced the teal accent with strong golden yellow (`#fbc700`) matching the Structorizer app icon in both light and dark modes, and styled active toggle Icon Buttons as rounded squares with a soft yellow tint and a 4 px bottom accent bar (`border-bottom: 4px solid var(--app)`).
+
+### Added
+- **MCP server (`main/mcp`, Craft parity)**: expanded from 10 to 17 fully annotated tools (`list-commands`, `validate-diagram`, `find-in-diagrams`, `replace-in-diagram`, `update-diagram`, `transmute-element`, `batch`, plus subtree `read-diagram`, automatic workspace subroutine resolution in `export-code`, and themed/inline `export-picture`), added MCP resources (`structorizer://reference/syntax`, `structorizer://diagram/{+path}`), MCP prompts (`create-algorithm`, `review-diagram`), and `info`/`validate`/`find`/`export` CLI subcommands.
+
 ## [3.32.35-web.4] – 2026-11-18 (corresponds to Structorizer 3.32-35)
 
 Full desktop localization (13 languages, English default), C / C# / Pascal code export, and repository cleanup.

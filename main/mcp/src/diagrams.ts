@@ -7,8 +7,12 @@ import path from 'node:path';
 import { readNsd } from '../../web/src/core/io/readNsd';
 import { writeNsd } from '../../web/src/core/io/writeNsd';
 import {
-  createDiagram, createElement, setCaseText, setParallelCount, slotsOf,
-  type Diagram, type DiagramType, type Element, type ElementKind, type Position, type SeqRef,
+  calledRoutine, caseInfo, classifyLine, forInfo, parseSignature,
+} from '../../web/src/core/lang/analyze';
+import {
+  createDiagram, createElement, findById, insertAt, mapSeq, moveTo, newId, removeById,
+  replaceElement, setCaseText, setParallelCount, slotsOf, updateElement,
+  type Diagram, type DiagramType, type Element, type ElementKind, type Keywords, type Position, type SeqRef,
 } from '../../web/src/core/model';
 import type { MeasureFn } from '../../web/src/core/layout';
 
@@ -138,9 +142,13 @@ export interface ElementInput {
   finally?: ElementInput[];
 }
 
-const KINDS: ElementKind[] = ['instruction', 'call', 'jump', 'alternative', 'case', 'for', 'while', 'repeat', 'forever', 'parallel', 'try'];
+export const KINDS: ElementKind[] = ['instruction', 'call', 'jump', 'alternative', 'case', 'for', 'while', 'repeat', 'forever', 'parallel', 'try'];
 const lines = (v: string | string[] | undefined): string[] | undefined =>
   v === undefined ? undefined : Array.isArray(v) ? v.map(String) : String(v).split(/\r?\n/);
+
+export function normalizeColor(raw: string | undefined): string | undefined {
+  return raw && /^#?[0-9a-f]{6}$/i.test(raw) ? raw.replace('#', '').toLowerCase() : undefined;
+}
 
 export function buildElement(input: ElementInput, d: Diagram): Element {
   if (!input || !KINDS.includes(input.kind)) throw new Error(`Unknown element kind "${input?.kind}". Use one of: ${KINDS.join(', ')}`);
@@ -149,7 +157,7 @@ export function buildElement(input: ElementInput, d: Diagram): Element {
   el = {
     ...el,
     comment: lines(input.comment) ?? [],
-    color: /^#?[0-9a-f]{6}$/i.test(input.color ?? '') ? input.color!.replace('#', '').toLowerCase() : 'ffffff',
+    color: normalizeColor(input.color) ?? 'ffffff',
     disabled: !!input.disabled,
   };
   switch (el.kind) {
@@ -170,11 +178,208 @@ export function buildElement(input: ElementInput, d: Diagram): Element {
   }
 }
 
-export function buildDiagram(type: DiagramType, name: string | string[], comment: string | string[] | undefined, elements: ElementInput[]): Diagram {
+export interface DiagramHeaderPatch {
+  type?: DiagramType;
+  name?: string | string[];
+  comment?: string | string[];
+  framed?: boolean;
+  includes?: string[];
+  author?: string;
+  license?: string;
+  keywords?: Partial<Keywords>;
+}
+
+export function buildDiagram(
+  type: DiagramType,
+  name: string | string[],
+  comment: string | string[] | undefined,
+  elements: ElementInput[],
+  extra: Omit<DiagramHeaderPatch, 'type' | 'name' | 'comment'> = {},
+): Diagram {
   const d0 = createDiagram(type);
-  const d: Diagram = { ...d0, text: lines(name) ?? ['???'], comment: lines(comment) ?? [], meta: { ...d0.meta, origin: `Structorizer MCP ${VERSION}` } };
+  const d: Diagram = {
+    ...d0,
+    text: lines(name) ?? ['???'],
+    comment: lines(comment) ?? [],
+    boxed: extra.framed ?? d0.boxed,
+    includeList: extra.includes ?? d0.includeList,
+    keywords: extra.keywords ? { ...d0.keywords, ...extra.keywords } : d0.keywords,
+    meta: {
+      ...d0.meta,
+      origin: `Structorizer MCP ${VERSION}`,
+      ...(extra.author !== undefined ? { author: extra.author } : {}),
+      ...(extra.license !== undefined ? { licenseName: extra.license } : {}),
+    },
+  };
   return { ...d, children: elements.map((e) => buildElement(e, d)) };
 }
+
+export function updateHeader(d: Diagram, patch: DiagramHeaderPatch): Diagram {
+  return {
+    ...d,
+    ...(patch.type ? { diagramType: patch.type } : {}),
+    ...(patch.name !== undefined ? { text: lines(patch.name)! } : {}),
+    ...(patch.comment !== undefined ? { comment: lines(patch.comment)! } : {}),
+    ...(patch.framed !== undefined ? { boxed: patch.framed } : {}),
+    ...(patch.includes !== undefined ? { includeList: patch.includes } : {}),
+    ...(patch.keywords ? { keywords: { ...d.keywords, ...patch.keywords } } : {}),
+    meta: {
+      ...d.meta,
+      changed: new Date().toISOString().slice(0, 10),
+      ...(patch.author !== undefined ? { author: patch.author } : {}),
+      ...(patch.license !== undefined ? { licenseName: patch.license } : {}),
+    },
+  };
+}
+
+export function transmuteElementAt(d: Diagram, pathStr: string): Diagram {
+  const target = elementAt(d, pathStr);
+  const f = findById(d, target.id);
+  if (!f) throw new Error(`Element not found at path "${pathStr}"`);
+  const el = f.el;
+  if (el.kind === 'instruction' && el.text.length > 1) {
+    const parts = el.text.map((t) => ({ ...el, id: newId(), text: [t], comment: [] as string[] }));
+    parts[0].comment = el.comment;
+    return mapSeq(d, f.parentSeq, (seq) => [...seq.slice(0, f.index), ...parts, ...seq.slice(f.index + 1)]);
+  }
+  const nextKind: Partial<Record<ElementKind, ElementKind>> = {
+    instruction: 'call', call: 'jump', jump: 'instruction', while: 'repeat', repeat: 'while',
+  };
+  const to = nextKind[el.kind];
+  if (!to) throw new Error(`Element kind "${el.kind}" at "${pathStr}" cannot be transmuted`);
+  return replaceElement(d, el.id, (e) => {
+    if ((e.kind === 'while' || e.kind === 'repeat') && (to === 'while' || to === 'repeat')) return { ...e, kind: to } as Element;
+    return { id: e.id, text: e.text, comment: e.comment, color: e.color, disabled: e.disabled, kind: to } as Element;
+  });
+}
+
+export function setCollapsedAt(d: Diagram, pathStr: string, collapsed: boolean): Diagram {
+  const el = elementAt(d, pathStr);
+  if (slotsOf(el).length === 0) throw new Error(`Element "${pathStr}" (${el.kind}) has no child branches to collapse`);
+  return updateElement(d, el.id, { collapsed });
+}
+
+export interface FindMatch { path: string; kind: ElementKind; text: string[]; comment: string[] }
+
+export function findInDiagram(d: Diagram, query: string, opts: { matchCase?: boolean; inComments?: boolean } = {}): FindMatch[] {
+  if (!query) return [];
+  const mc = !!opts.matchCase;
+  const inC = opts.inComments !== false;
+  const q = mc ? query : query.toLowerCase();
+  const has = (linesArr: string[]) => linesArr.some((l) => (mc ? l : l.toLowerCase()).includes(q));
+  const out: FindMatch[] = [];
+  for (const [p, el] of pathMap(d)) {
+    if (has(el.text) || (inC && has(el.comment))) out.push({ path: p, kind: el.kind, text: el.text, comment: el.comment });
+  }
+  return out;
+}
+
+export function replaceInDiagram(
+  d: Diagram,
+  search: string,
+  replacement: string,
+  opts: { matchCase?: boolean; inComments?: boolean } = {},
+): { diagram: Diagram; replacements: number; paths: string[] } {
+  if (!search) throw new Error('Search string must not be empty');
+  const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), opts.matchCase ? 'g' : 'gi');
+  const inC = opts.inComments !== false;
+  let next = d;
+  let count = 0;
+  const paths: string[] = [];
+  for (const [p, el] of pathMap(d)) {
+    let hit = false;
+    const swap = (s: string) => s.replace(re, () => { count++; hit = true; return replacement; });
+    const text = el.text.map(swap);
+    const comment = inC ? el.comment.map(swap) : el.comment;
+    if (hit) {
+      next = updateElement(next, el.id, { text, comment });
+      paths.push(p);
+    }
+  }
+  return { diagram: next, replacements: count, paths };
+}
+
+export interface DiagnosticIssue { level: 'error' | 'warning' | 'info'; path: string; message: string }
+
+const BUILTIN_PROCS = new Set([
+  'sqrt', 'sin', 'cos', 'tan', 'exp', 'log', 'floor', 'ceil', 'pow', 'abs', 'round', 'min', 'max',
+  'random', 'randomize', 'length', 'pos', 'copy', 'concat', 'trim', 'uppercase', 'lowercase',
+  'forward', 'backward', 'fd', 'bk', 'left', 'right', 'rl', 'rr', 'penup', 'pendown', 'gotoxy',
+]);
+
+export function validateDiagram(d: Diagram, pool: Diagram[] = []): { valid: boolean; issues: DiagnosticIssue[] } {
+  const issues: DiagnosticIssue[] = [];
+  const sig = parseSignature(d);
+  if (!sig.name || sig.name === 'structorizer') {
+    if ((d.text[0] ?? '').trim() === '???' || (d.text[0] ?? '').trim() === '') {
+      issues.push({ level: 'warning', path: 'root', message: 'Diagram has default unnamed header ("???")' });
+    }
+  }
+  if (d.children.length === 0) issues.push({ level: 'warning', path: 'root', message: 'Diagram has no elements' });
+
+  const poolNames = new Set(pool.map((x) => parseSignature(x).name));
+  for (const inc of d.includeList) {
+    if (pool.length && !pool.some((x) => x.diagramType === 'includable' && parseSignature(x).name === inc)) {
+      issues.push({ level: 'warning', path: 'root', message: `Included diagram "${inc}" was not found in workspace` });
+    }
+  }
+
+  for (const [p, el] of pathMap(d)) {
+    const raw = el.text.join(' ').trim();
+    if (el.disabled) issues.push({ level: 'info', path: p, message: `Disabled ${el.kind} element` });
+    if (el.kind === 'instruction' || el.kind === 'call' || el.kind === 'alternative' || el.kind === 'while' || el.kind === 'repeat') {
+      if (!raw) issues.push({ level: 'warning', path: p, message: `Empty ${el.kind} text` });
+    }
+    if (el.kind === 'for') {
+      const fi = forInfo(el, d.keywords);
+      if (fi.style === 'FREETEXT') issues.push({ level: 'warning', path: p, message: `FOR loop header not recognized as counter or traversal: "${fi.raw}"` });
+    }
+    if (el.kind === 'case') {
+      const ci = caseInfo(el.text, d.keywords);
+      if (!(el.text[0] ?? '').trim() || !ci.discriminator) {
+        issues.push({ level: 'warning', path: p, message: 'CASE statement missing discriminator' });
+      }
+      el.branches.forEach((b, i) => {
+        if (b.length === 0 && el.text[i + 1]?.trim() !== '%') {
+          issues.push({ level: 'info', path: `${p}/branch/${i}`, message: `Empty CASE branch #${i}` });
+        }
+      });
+    }
+    if (el.kind === 'alternative' && el.thenBranch.length === 0) {
+      issues.push({ level: 'warning', path: `${p}/then`, message: 'Empty IF then-branch' });
+    }
+    if ((el.kind === 'for' || el.kind === 'while' || el.kind === 'repeat' || el.kind === 'forever') && el.body.length === 0) {
+      issues.push({ level: 'warning', path: `${p}/body`, message: `Empty ${el.kind} loop body` });
+    }
+    if (el.kind === 'try' && el.tryBody.length === 0) {
+      issues.push({ level: 'warning', path: `${p}/try`, message: 'Empty TRY block' });
+    }
+    if (el.kind === 'call' || el.kind === 'instruction') {
+      for (const line of el.text) {
+        const st = classifyLine(line, d.keywords);
+        if (st.t === 'call' || st.t === 'assign') {
+          const call = calledRoutine(line, d.keywords);
+          if (call && !BUILTIN_PROCS.has(call.name.toLowerCase()) && pool.length && !poolNames.has(call.name)) {
+            issues.push({ level: 'info', path: p, message: `Called routine "${call.name}" not found as a .nsd file in workspace` });
+          }
+        }
+      }
+    }
+  }
+  return { valid: issues.every((i) => i.level !== 'error'), issues };
+}
+
+export async function loadWorkspacePool(ws: Workspace, excludePath?: string): Promise<Diagram[]> {
+  const files = await ws.list('.', 4);
+  const out: Diagram[] = [];
+  for (const f of files) {
+    if (excludePath && path.resolve(ws.root, f) === path.resolve(ws.root, excludePath)) continue;
+    try { out.push(await ws.load(f)); } catch { /* ignore unreadable/invalid sibling file */ }
+  }
+  return out;
+}
+
+export { insertAt, moveTo, removeById, updateElement };
 
 // ------------------------------------------------------------------ model -> outline / JSON
 

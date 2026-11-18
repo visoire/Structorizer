@@ -1,13 +1,16 @@
 /* Structorizer Web - SPDX-License-Identifier: GPL-3.0-or-later
    Design tokens follow the Craft apps (GridCraft / WordCraft theme.rs): neutral grey surfaces,
-   flat icon buttons with hover/pressed fills, soft accent for checked state, 2-4 px widget
-   radius, 8 px menus, 10 px dialogs, popup shadow 0 4 16. Structorizer's app colour is teal. */
+   flat icon buttons with hover/pressed fills, soft yellow accent matching the app icon (#fbc700),
+   rounded square active toggle tiles with a 4 px bottom accent bar, 8 px menus, 10 px dialogs. */
 :root {
-  --app: #0f7b6c;
-  --app-dark: #0b5e52;
-  --app-soft: #dcf0ec;
-  --app-checked: #cfe9e3;
-  --on-app: #ffffff;
+  --app: #fbc700;
+  --app-dark: #e2ad00;
+  --app-border: rgba(186, 130, 0, 0.45);
+  --app-text: #8a5b00;
+  --app-soft: rgba(251, 199, 0, 0.22);
+  --app-checked: #fff3bd;
+  --app-checked-hover: #ffea8a;
+  --on-app: #1c1604;
 
   --title-bar: #f0f0f0;
   --ribbon: #f9f9f9;
@@ -25,9 +28,9 @@
   --hover: #ebebeb;
   --pressed: #dddddd;
   --code-bg: #ffffff;
-  --code-hl: #fff4ce;
-  --sel: rgba(15, 123, 108, 0.16);
-  --sel-line: #0f7b6c;
+  --code-hl: #fff3b0;
+  --sel: rgba(251, 199, 0, 0.24);
+  --sel-line: #d49000;
   --danger: #c42b1c;
   --danger-soft: #fde7e4;
   --shadow-popup: 0 4px 16px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.04);
@@ -56,11 +59,14 @@
 }
 
 :root[data-theme="dark"] {
-  --app: #5cc8b4;
-  --app-dark: #3fae99;
-  --app-soft: #1f3b36;
-  --app-checked: #24463f;
-  --on-app: #0d201c;
+  --app: #fbc700;
+  --app-dark: #ffd43b;
+  --app-border: rgba(251, 199, 0, 0.45);
+  --app-text: #ffd43b;
+  --app-soft: rgba(251, 199, 0, 0.2);
+  --app-checked: rgba(251, 199, 0, 0.18);
+  --app-checked-hover: rgba(251, 199, 0, 0.28);
+  --on-app: #1c1604;
 
   --title-bar: #1f1f1f;
   --ribbon: #292929;
@@ -78,9 +84,9 @@
   --hover: #3d3d3d;
   --pressed: #4a4a4a;
   --code-bg: #1e1e1e;
-  --code-hl: #4a3f1e;
-  --sel: rgba(92, 200, 180, 0.2);
-  --sel-line: #5cc8b4;
+  --code-hl: #4a3d10;
+  --sel: rgba(251, 199, 0, 0.22);
+  --sel-line: #fbc700;
   --danger: #ff9585;
   --danger-soft: #4a2420;
   --shadow-popup: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
@@ -95,7 +101,7 @@ html, body, #root { height: 100%; margin: 0; }
 body { overscroll-behavior: none; background: var(--title-bar); }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { -webkit-tap-highlight-color: transparent; }
-a { color: var(--app); }
+a { color: var(--app-text); }
 kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
 ::selection { background: var(--app-soft); }
 
@@ -123,7 +129,7 @@ kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px;
 }
 .doc-name { font-weight: 600; color: var(--text); }
-.dot { color: var(--app); font-weight: 700; }
+.dot { color: var(--app-text); font-weight: 700; }
 .top-quick { display: flex; align-items: center; gap: 2px; flex: none; }
 
 .menubar { position: relative; display: flex; align-items: center; flex: none; }
@@ -162,7 +168,7 @@ kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
 .menu-item:disabled { color: var(--text-disabled); }
 .menu-item:disabled kbd { color: var(--text-disabled); }
 .menu-item[aria-expanded="true"] { background: var(--hover); }
-.mi-check { width: 22px; flex: none; display: inline-flex; justify-content: center; color: var(--app); font-weight: 700; }
+.mi-check { width: 22px; flex: none; display: inline-flex; justify-content: center; color: var(--app-text); font-weight: 700; }
 .mi-check svg { width: 16px; height: 16px; color: var(--text-dim); }
 .mi-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .mi-arrow { color: var(--text-dim); font-size: 11px; transition: transform var(--t-fast) var(--ease); }
@@ -191,7 +197,7 @@ kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
 .tool {
   position: relative; min-width: var(--tool); height: var(--tool);
   display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 5px;
-  border: 1px solid transparent; border-radius: var(--r-widget); background: transparent; color: var(--text);
+  border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text);
   cursor: default; touch-action: manipulation; flex: none;
   transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
 }
@@ -199,7 +205,13 @@ kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
 .tool:hover:not(:disabled) { background: var(--hover); }
 .tool:active:not(:disabled) { background: var(--pressed); }
 .tool:disabled { color: var(--text-disabled); }
-.tool[aria-pressed="true"] { background: var(--app-checked); border-color: transparent; color: var(--text); box-shadow: inset 0 -2px 0 var(--app); }
+.tool[aria-pressed="true"] {
+  background: var(--app-checked);
+  border-color: var(--app-border);
+  border-bottom: 4px solid var(--app);
+  color: var(--text);
+}
+.tool[aria-pressed="true"]:hover:not(:disabled) { background: var(--app-checked-hover); }
 .tool.wide { padding: 0 9px; }
 .tool-label { font-weight: 500; font-size: 13px; }
 .badge {
@@ -214,7 +226,7 @@ kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
 }
 .zoom-label:hover { background: var(--hover); }
 :is(.tool, .zoom-label, .btn, .menu-title, .menu-item, .panel-tabs button, .tabs button, .icon-btn):focus-visible {
-  outline: 2px solid var(--app); outline-offset: -2px;
+  outline: 2px solid var(--sel-line); outline-offset: -2px;
 }
 
 /* ================================================================ work area */
@@ -251,7 +263,7 @@ kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
 }
 .panel-tabs button[role="tab"]:hover { color: var(--text); }
 .panel-tabs button[role="tab"]::after {
-  content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px;
+  content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 3px; border-radius: 2px;
   background: var(--app); transform: scaleX(0); transition: transform var(--t-med) var(--ease);
 }
 .panel-tabs button[aria-selected="true"] { color: var(--text); font-weight: 600; }
@@ -304,8 +316,8 @@ kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
 }
 .status-left { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-right { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; flex: none; }
-.status-right::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--app); }
-.status-right.warn::before { background: var(--danger); }
+.status-right::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--app); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.22); }
+.status-right.warn::before { background: var(--danger); box-shadow: none; }
 
 /* ================================================================ form controls */
 .btn {
@@ -318,7 +330,7 @@ kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
 .btn:active:not(:disabled) { background: var(--pressed); }
 .btn:disabled { color: var(--text-disabled); border-color: var(--border); }
 .btn.small { min-height: 28px; padding: 0 10px; font-size: 12px; }
-.btn.primary { background: var(--app); border-color: var(--app); color: var(--on-app); font-weight: 600; }
+.btn.primary { background: var(--app); border-color: var(--app-dark); color: var(--on-app); font-weight: 600; }
 .btn.primary:hover:not(:disabled) { background: var(--app-dark); border-color: var(--app-dark); }
 .btn.primary:active:not(:disabled) { filter: brightness(0.92); }
 .btn.primary:disabled { opacity: 0.45; }
@@ -355,7 +367,7 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-
   transition: transform var(--t-fast) var(--ease), box-shadow var(--t-fast);
 }
 .swatch:hover { transform: scale(1.08); }
-.swatch.on { box-shadow: 0 0 0 2px var(--menu-bg), 0 0 0 4px var(--app); }
+.swatch.on { box-shadow: 0 0 0 2px var(--menu-bg), 0 0 0 4px var(--sel-line); }
 .font-preview { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-widget); background: #fff; color: #000; }
 
 /* ================================================================ dialogs */
@@ -383,7 +395,7 @@ input[type="checkbox"], input[type="radio"] { width: 16px; height: 16px; accent-
   color: var(--text-dim); white-space: nowrap;
 }
 .tabs button:hover { color: var(--text); }
-.tabs button::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--app); transform: scaleX(0); transition: transform var(--t-med) var(--ease); }
+.tabs button::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 3px; border-radius: 2px; background: var(--app); transform: scaleX(0); transition: transform var(--t-med) var(--ease); }
 .tabs button[aria-selected="true"] { color: var(--text); font-weight: 600; }
 .tabs button[aria-selected="true"]::after { transform: scaleX(1); }
 .form-grid { display: grid; gap: 10px; }
@@ -456,10 +468,11 @@ details.attributes summary { cursor: default; font-weight: 600; font-size: 12px;
 
 /* ================================================================ print: only the diagram */
 @media print {
+  @page { margin: 12mm; }
+  html, body, #root { height: auto !important; min-height: 0 !important; overflow: visible !important; background: #fff !important; color: #000 !important; }
   .app { display: none !important; }
-  #print-area { display: block !important; }
-  #print-area svg { max-width: 100%; height: auto; }
-  body { background: #fff; }
+  #print-area { display: block !important; width: 100%; }
+  #print-area svg { display: block; width: auto; max-width: 100%; max-height: 92vh; height: auto; margin: 0 auto; page-break-inside: avoid; break-inside: avoid; }
 }
 
 .field input[type="range"] { padding: 0; border: 0; box-shadow: none; background: transparent; accent-color: var(--app); min-height: 24px; }

@@ -218,17 +218,21 @@ node dist/cli.js mcp --root "C:\Users\me\Documents\Diagrams"</code></pre>
           <table>
             <thead><tr><th>Tool</th><th>Does</th></tr></thead>
             <tbody>
+              <tr><td><code>list-commands</code></td><td>lists all tools, element kinds and 9 code export languages</td></tr>
               <tr><td><code>list-diagrams</code></td><td>lists the <code>.nsd</code> files under the root folder</td></tr>
-              <tr><td><code>read-diagram</code></td><td>reads a diagram as an outline (text) and as a JSON tree with element ids</td></tr>
-              <tr><td><code>create-diagram</code></td><td>creates a new diagram from a JSON tree (type, name, elements)</td></tr>
-              <tr><td><code>add-element</code></td><td>inserts an element (with nested elements) at a position</td></tr>
-              <tr><td><code>update-element</code></td><td>changes text, comment, colour or disabled state of an element</td></tr>
-              <tr><td><code>delete-element</code>, <code>move-element</code></td><td>removes or moves an element</td></tr>
-              <tr><td><code>export-code</code></td><td>generates Python, Java, JavaScript, C, C++, C#, Pascal, PHP or Bash</td></tr>
-              <tr><td><code>export-picture</code></td><td>writes SVG or EMF next to the diagram</td></tr>
-              <tr><td><code>diagram-info</code></td><td>header, parameters, variables and element counts</td></tr>
+              <tr><td><code>read-diagram</code></td><td>reads a diagram as an outline, JSON tree or single element subtree</td></tr>
+              <tr><td><code>diagram-info</code></td><td>header, parameters, variables, includes, counts and warning summary</td></tr>
+              <tr><td><code>validate-diagram</code></td><td>checks for empty branches, unparsed loop headers and missing subroutines</td></tr>
+              <tr><td><code>find-in-diagrams</code>, <code>replace-in-diagram</code></td><td>searches across <code>.nsd</code> files or replaces text in a diagram</td></tr>
+              <tr><td><code>create-diagram</code>, <code>update-diagram</code></td><td>creates a diagram or updates header, signature, type, frame, includes and metadata</td></tr>
+              <tr><td><code>add-element</code>, <code>update-element</code></td><td>inserts or updates an element's text, comment, colour, disabled or collapsed state</td></tr>
+              <tr><td><code>delete-element</code>, <code>move-element</code>, <code>transmute-element</code></td><td>removes, moves, splits or converts elements</td></tr>
+              <tr><td><code>batch</code></td><td>runs multiple editing operations on a diagram in a single atomic save</td></tr>
+              <tr><td><code>export-code</code></td><td>generates Python, Java, JavaScript, C, C++, C#, Pascal, PHP or Bash (auto-resolving workspace subroutines)</td></tr>
+              <tr><td><code>export-picture</code></td><td>writes SVG or EMF (with light/dark theme, comments, highlighting and optional inline SVG)</td></tr>
             </tbody>
           </table>
+          <p>The server also exposes MCP resources (<code>structorizer://reference/syntax</code> and <code>structorizer://diagram/{+path}</code>) and prompts (<code>create-algorithm</code>, <code>review-diagram</code>).</p>
           <p>The tools use the same code as the editor (file format, layout and code export), so a diagram written by an assistant opens unchanged in Structorizer Web and Structorizer Desktop.</p>
         </article>
 

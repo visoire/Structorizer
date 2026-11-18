@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDiagram } from '../src/core/model';
-import { useStore } from '../src/store/diagramStore';
+import { anyDirty, isDirty, useStore } from '../src/store/diagramStore';
 
 const st = () => useStore.getState();
 
@@ -52,5 +52,27 @@ describe('store', () => {
     expect(st().diagram.children[0].id).not.toBe(st().diagram.children[1].id);
     st().removeSelected();
     expect(st().diagram.children.length).toBe(1);
+  });
+
+  it('tracks unsaved changes across active and background diagrams', () => {
+    useStore.setState({ docs: [] });
+    st().load(createDiagram(), null);
+    expect(isDirty(st())).toBe(false);
+    expect(anyDirty(st())).toBe(false);
+
+    st().insert('instruction');
+    st().closeEditor(false);
+    expect(isDirty(st())).toBe(true);
+    expect(anyDirty(st())).toBe(true);
+
+    // switch to a clean new diagram while first remains unsaved in background
+    st().newDoc(createDiagram(), 'second.nsd');
+    expect(isDirty(st())).toBe(false);
+    expect(anyDirty(st())).toBe(true);
+
+    st().closeDoc(st().activeId);
+    st().markSaved('first.nsd');
+    expect(isDirty(st())).toBe(false);
+    expect(anyDirty(st())).toBe(false);
   });
 });
