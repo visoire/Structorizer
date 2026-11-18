@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Element editor and diagram (root) editor. Esc closes every dialog (desktop issue #401).
 import { useEffect, useRef, useState } from 'react';
-import { DEFAULT_COLORS, findById, type DiagramType, type Element, type ElementKind } from '../core/model';
+import { DEFAULT_COLORS, findById, walk, type DiagramType, type Element, type ElementKind } from '../core/model';
 import { translator, type TKey } from '../i18n';
 import { useStore } from '../store/diagramStore';
+import { usePrefs } from '../store/prefsStore';
 
 const HINTS: Partial<Record<ElementKind, TKey>> = {
   instruction: 'hintInstruction', case: 'hintCase', parallel: 'hintParallel', try: 'hintTry',
@@ -13,8 +14,8 @@ const HINTS: Partial<Record<ElementKind, TKey>> = {
 const toLines = (s: string) => s.replace(/\r\n?/g, '\n').split('\n');
 const fromLines = (l: string[]) => l.join('\n');
 
-export function Modal({ title, onClose, onOk, children, okLabel, cancelLabel }: {
-  title: string; onClose: () => void; onOk?: () => void; children: React.ReactNode; okLabel?: string; cancelLabel: string;
+export function Modal({ title, onClose, onOk, children, okLabel, cancelLabel, wide }: {
+  title: string; onClose: () => void; onOk?: () => void; children: React.ReactNode; okLabel?: string; cancelLabel: string; wide?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -25,7 +26,7 @@ export function Modal({ title, onClose, onOk, children, okLabel, cancelLabel }: 
   }, []);
   return (
     <div className="modal-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title} ref={ref}
+      <div className={"modal" + (wide ? " wide" : "")} role="dialog" aria-modal="true" aria-label={title} ref={ref}
         onKeyDown={(e) => {
           if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); }
           else if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.metaKey) && onOk) { e.preventDefault(); e.stopPropagation(); onOk(); }
@@ -64,7 +65,7 @@ export function ElementEditor() {
 }
 
 function ElementForm({ el, isNew }: { el: Element; isNew: boolean }) {
-  const lang = useStore((s) => s.lang);
+  const lang = usePrefs((p) => p.lang);
   const t = translator(lang);
   const [text, setText] = useState(() => (el.kind === 'parallel' ? String(el.branches.length) : fromLines(el.text)));
   const [comment, setComment] = useState(() => fromLines(el.comment));
@@ -118,7 +119,7 @@ export function DiagramEditor() {
 
 function DiagramForm() {
   const diagram = useStore((s) => s.diagram);
-  const lang = useStore((s) => s.lang);
+  const lang = usePrefs((p) => p.lang);
   const t = translator(lang);
   const [text, setText] = useState(() => fromLines(diagram.text));
   const [comment, setComment] = useState(() => fromLines(diagram.comment));
@@ -127,6 +128,8 @@ function DiagramForm() {
   const [author, setAuthor] = useState(diagram.meta.author ?? '');
   const [includes, setIncludes] = useState(() => diagram.includeList.join('\n'));
   const [color, setColor] = useState(diagram.color);
+  const counts: Partial<Record<ElementKind, number>> = {};
+  walk(diagram, (el) => { counts[el.kind] = (counts[el.kind] ?? 0) + 1; });
 
   const close = () => useStore.getState().closeEditor(false);
   const ok = () => {
@@ -144,9 +147,10 @@ function DiagramForm() {
     s.closeEditor(false);
   };
   return (
-    <Modal title={t('diagramProps')} onClose={close} onOk={ok} okLabel={t('ok')} cancelLabel={t('cancel')}>
+    <Modal title={t('diagramProps').replace(/\s*\.\.\.$/, '')} onClose={close} onOk={ok} okLabel={t('ok')} cancelLabel={t('cancel')}>
       <label className="field"><span>{t('diagramName')}</span>
-        <textarea rows={2} value={text} spellCheck={false} autoCapitalize="off" onChange={(e) => setText(e.target.value)} /></label>
+        <textarea rows={2} value={text} spellCheck={false} autoCapitalize="off" onChange={(e) => setText(e.target.value)} />
+        <small className="hint">{t('hintSignature')}</small></label>
       <label className="field"><span>{t('comment')}</span>
         <textarea rows={3} value={comment} onChange={(e) => setComment(e.target.value)} /></label>
       <fieldset className="radio-row">
@@ -161,6 +165,19 @@ function DiagramForm() {
       <label className="field"><span>{t('includeList')}</span>
         <textarea rows={2} value={includes} onChange={(e) => setIncludes(e.target.value)} /></label>
       <ColorPicker value={color} onChange={setColor} label={t('color')} />
+      <details className="attributes">
+        <summary>{t('statistics')}</summary>
+        <table className="keys">
+          <tbody>
+            {Object.entries(counts).map(([k, n]) => <tr key={k}><td>{t(('kind.' + k) as TKey)}</td><td>{n}</td></tr>)}
+            {diagram.meta.created && <tr><td>{t('created')}</td><td>{diagram.meta.created}</td></tr>}
+            {diagram.meta.changed && <tr><td>{t('changed')}</td><td>{diagram.meta.changed}{diagram.meta.changedBy ? ` (${diagram.meta.changedBy})` : ''}</td></tr>}
+            {diagram.meta.origin && <tr><td>{t('origin')}</td><td>{diagram.meta.origin}</td></tr>}
+            {diagram.meta.fileVersion && <tr><td>{t('fileVersion')}</td><td>{diagram.meta.fileVersion}</td></tr>}
+            {diagram.meta.licenseName && <tr><td>{t('license')}</td><td>{diagram.meta.licenseName}</td></tr>}
+          </tbody>
+        </table>
+      </details>
     </Modal>
   );
 }

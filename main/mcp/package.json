@@ -1,0 +1,25 @@
+{
+  "name": "structorizer-mcp",
+  "version": "3.32.35",
+  "description": "Headless CLI and MCP server for Structorizer diagrams (.nsd): read, create, edit and export to code, SVG and EMF.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "bin": { "structorizer-cli": "dist/cli.js" },
+  "files": ["dist"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "esbuild src/cli.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist/cli.js --banner:js=\"#!/usr/bin/env node\" --packages=external",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node test/smoke.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@xmldom/xmldom": "0.9.12",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3"
+  }
+}

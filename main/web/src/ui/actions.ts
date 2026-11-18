@@ -1,0 +1,211 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// All user commands in one place: menu bar, toolbar, context menu and keyboard call these.
+import { createDiagram, findById, slotsOf, STRUCTURED_KINDS, type DiagramType, type ElementKind } from '../core/model';
+import { readNsd } from '../core/io';
+import type { LangId } from '../core/gen/generators';
+import { translator } from '../i18n';
+import { useStore } from '../store/diagramStore';
+import { usePrefs } from '../store/prefsStore';
+import {
+  copyPngToClipboard, exportCode, exportEmf, exportPdf, exportPng, exportPngMulti, exportSvg, moveSaveHandle,
+  pickFile, printDiagram, readFile, saveDiagram, savePrefsFile, type RecentFile,
+} from './exporters';
+
+const st = () => useStore.getState();
+const t = () => translator(usePrefs.getState().lang);
+const notify = (text: string, kind: 'info' | 'error' = 'info') => st().notify(text, kind);
+const pool = () => st().allDocs().map((x) => x.diagram);
+
+/** Document key for file handles: stable per open document. */
+const docKey = new Map<string, object>();
+function keyOf(id: string): object {
+  let k = docKey.get(id);
+  if (!k) { k = {}; docKey.set(id, k); }
+  return k;
+}
+
+function isDirtyActive(): boolean {
+  const s = st();
+  return s.diagram !== s.savedDiagram && (s.savedDiagram !== null || s.past.length > 0);
+}
+
+async function guard<T>(fn: () => Promise<T> | T): Promise<T | undefined> {
+  try { return await fn(); } catch (e) { notify((e as Error).message, 'error'); return undefined; }
+}
+
+export const actions = {
+  // ---------------------------------------------------------------- File
+  newDiagram: () => actions.newWith('program'),
+
+  open: async () => {
+    const files = await pickFile('.nsd,application/xml,text/xml', true);
+    for (const file of files) {
+      await guard(async () => {
+        const { diagram, warnings } = await readFile(file);
+        st().openDoc(diagram, file.name);
+        st().requestFit();
+        if (warnings.length) notify(`${t()('loadedWithWarnings')}: ${warnings.slice(0, 3).join(' ')}`);
+      }).catch(() => notify(t()('openFailed'), 'error'));
+    }
+  },
+
+  openXml: (xml: string, name: string | null) => {
+    try {
+      const { diagram, warnings } = readNsd(xml);
+      st().openDoc(diagram, name);
+      st().requestFit();
+      if (warnings.length) notify(`${t()('loadedWithWarnings')}: ${warnings.slice(0, 3).join(' ')}`);
+    } catch (e) {
+      notify(`${t()('openFailed')}: ${(e as Error).message}`, 'error');
+    }
+  },
+
+  openRecent: (r: RecentFile) => actions.openXml(r.xml, r.name),
+
+  save: async (saveAs = false) => {
+    const s = st();
+    const name = await guard(() => saveDiagram(s.diagram, keyOf(s.activeId), saveAs));
+    if (name) { st().markSaved(name); notify(`${t()('saved')}: ${name}`); }
+  },
+
+  saveAll: async () => {
+    const startId = st().activeId;
+    for (const doc of st().allDocs()) {
+      if (!doc.dirty) continue;
+      st().switchDoc(doc.id);
+      const s = st();
+      const name = await guard(() => saveDiagram(s.diagram, keyOf(s.activeId), false));
+      if (name) st().markSaved(name);
+    }
+    st().switchDoc(startId);
+  },
+
+  closeDiagram: (id?: string) => {
+    const s = st();
+    const target = id ?? s.activeId;
+    const doc = s.allDocs().find((x) => x.id === target);
+    if (doc?.dirty && !window.confirm(t()('closeUnsaved'))) return;
+    s.closeDoc(target);
+  },
+
+  clear: () => {
+    if (st().diagram.children.length === 0) return;
+    if (window.confirm(t()('clearConfirm'))) st().clearDiagram();
+  },
+
+  exportPicture: async (kind: 'png' | 'pngMulti' | 'svg' | 'emf' | 'pdf' | 'swf') => {
+    const d = st().diagram;
+    if (kind === 'swf') { notify(t()('swfNote')); return; }
+    if (kind === 'pngMulti') { st().setDialog('pngMulti'); return; }
+    await guard(async () => {
+      if (kind === 'png') await exportPng(d);
+      else if (kind === 'svg') exportSvg(d);
+      else if (kind === 'emf') exportEmf(d);
+      else if (kind === 'pdf') await exportPdf(d);
+      notify(`${t()('exported')}: ${kind.toUpperCase()}`);
+    });
+  },
+
+  exportPngTiles: async (cols: number, rows: number) => {
+    const n = await guard(() => exportPngMulti(st().diagram, cols, rows));
+    if (n) notify(`${t()('exported')}: ${n} PNG`);
+  },
+
+  exportCode: (lang?: LangId) => {
+    const l = lang ?? usePrefs.getState().codeLang;
+    void guard(() => exportCode(st().diagram, l, pool()));
+  },
+
+  print: () => { notify(t()('printHint')); printDiagram(st().diagram); },
+
+  attributes: () => st().openEditor({ t: 'root' }),
+
+  // ---------------------------------------------------------------- Edit
+  undo: () => st().undo(),
+  redo: () => st().redo(),
+  cut: () => st().cut(),
+  copy: () => st().copy(),
+  paste: () => st().paste(),
+  duplicate: () => st().duplicate(),
+
+  remove: () => {
+    const s = st();
+    if (s.selection?.t !== 'el') return;
+    const el = findById(s.diagram, s.selection.id)?.el;
+    if (el && usePrefs.getState().confirmDelete && STRUCTURED_KINDS.has(el.kind) && slotsOf(el).some((x) => x.seq.length > 0)) {
+      if (!window.confirm(t()('deleteConfirm'))) return;
+    }
+    s.removeSelected();
+  },
+
+  editSelected: () => {
+    const s = st();
+    if (s.selection?.t === 'el') s.openEditor({ t: 'el', id: s.selection.id, isNew: false });
+    else if (s.selection?.t === 'root' || !s.selection) s.openEditor({ t: 'root' });
+  },
+
+  find: () => st().setDialog('find'),
+
+  copyPicture: async () => {
+    const ok = await copyPngToClipboard(st().diagram);
+    notify(ok ? t()('copied') : t()('clipboardFailed'), ok ? 'info' : 'error');
+  },
+
+  // ---------------------------------------------------------------- Diagram
+  insert: (kind: ElementKind, before = false) => {
+    const s = st();
+    s.insert(kind, before || s.insertBefore);
+    if (s.insertBefore) s.setInsertBefore(false);
+  },
+  moveUp: () => st().shift(-1),
+  moveDown: () => st().shift(1),
+  transmute: () => { if (!st().transmute()) notify(t()('transmuteNone')); },
+  outsource: () => { if (st().outsource()) notify(t()('outsourced')); },
+  collapse: () => st().toggleCollapsed(true),
+  expand: () => st().toggleCollapsed(false),
+  toggleCollapse: () => st().toggleCollapsed(),
+  disable: () => st().toggleDisabled(),
+  setType: (type: DiagramType) => {
+    const s = st();
+    if (s.diagram.diagramType !== type) s.commit({ ...s.diagram, diagramType: type });
+  },
+  toggleBoxed: () => { const s = st(); s.commit({ ...s.diagram, boxed: !s.diagram.boxed }); },
+
+  // ---------------------------------------------------------------- View
+  zoomIn: () => st().setZoom(st().zoom * 1.2),
+  zoomOut: () => st().setZoom(st().zoom / 1.2),
+  zoomReset: () => st().setZoom(1),
+  zoomFit: () => st().requestFit(),
+  togglePanel: (tab?: 'code' | 'index') => {
+    const p = usePrefs.getState();
+    if (tab && (!p.panelOpen || p.panelTab !== tab)) p.set({ panelOpen: true, panelTab: tab });
+    else p.set({ panelOpen: !p.panelOpen });
+  },
+
+  // ---------------------------------------------------------------- Preferences
+  prefs: () => st().setDialog('prefs'),
+  savePrefs: () => savePrefsFile(usePrefs.getState().exportJson()),
+  loadPrefs: async () => {
+    const [f] = await pickFile('.json,application/json');
+    if (!f) return;
+    await guard(async () => usePrefs.getState().importJson(await f.text()));
+  },
+
+  // ---------------------------------------------------------------- Debug / Help
+  planned: () => notify(t()('plannedNote')),
+  docs: (anchor = '') => window.open(`./docs/${anchor}`, '_blank', 'noopener'),
+  keys: () => st().setDialog('keys'),
+  about: () => st().setDialog('about'),
+
+  newWith: (type: DiagramType) => {
+    const d = createDiagram(type);
+    st().newDoc({ ...d, keywords: { ...usePrefs.getState().defaultKeywords } });
+  },
+};
+
+/** Keep file handles when documents switch (the handle belongs to the doc id). */
+export function rememberHandle(fromId: string, toId: string): void {
+  moveSaveHandle(keyOf(fromId), keyOf(toId));
+}
+
+export { isDirtyActive };

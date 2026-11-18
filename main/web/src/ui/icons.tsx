@@ -21,7 +21,7 @@ export function KindIcon({ kind }: { kind: ElementKind }) {
 }
 
 type IconName = 'new' | 'open' | 'save' | 'undo' | 'redo' | 'edit' | 'delete' | 'cut' | 'copy' | 'paste'
-  | 'duplicate' | 'up' | 'down' | 'disable' | 'collapse' | 'zoomIn' | 'zoomOut' | 'zoomFit' | 'image' | 'info' | 'diagram' | 'before';
+  | 'duplicate' | 'up' | 'down' | 'disable' | 'collapse' | 'zoomIn' | 'zoomOut' | 'zoomFit' | 'image' | 'info' | 'diagram' | 'before' | 'panel';
 
 export function Icon({ name }: { name: IconName }) {
   switch (name) {
@@ -46,6 +46,7 @@ export function Icon({ name }: { name: IconName }) {
     case 'image': return <svg {...S}><rect x="3" y="5" width="18" height="14" /><path d="M3 16l5-5 4 4 3-3 6 6" /><circle cx="16" cy="9" r="1.5" /></svg>;
     case 'info': return <svg {...S}><circle cx="12" cy="12" r="9" /><path d="M12 11v6 M12 7.5v.5" /></svg>;
     case 'diagram': return <svg {...S}><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M3 8h18" /></svg>;
+    case 'panel': return <svg {...S}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16 M17 8h2 M17 11h2" /></svg>;
     case 'before': return <svg {...S}><path d="M12 20V8 M7 13l5-5 5 5 M5 4h14" /></svg>;
   }
 }

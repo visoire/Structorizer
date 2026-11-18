@@ -2,7 +2,7 @@
 
 Source: open issues listed in `sourcecode/issues*.txt` (state of the GitHub issue list,
 61 open), cross-checked against `sourcecode/changelog.txt` (desktop 3.32-35).
-Date: 2026-11-18, web version 0.1.0.
+Date: 2026-11-18, updated for web version 3.32.35-web.2.
 
 Status values:
 - **Done (web)**: solved or not reproducible in the web version as of 0.1.0.
@@ -23,7 +23,7 @@ Status values:
 | #986 | Tree views broken with Nimbus L&F | open | **N/A** |
 | #401 | Dialogs cannot be closed by keyboard | open | **Done (web)**: Esc closes every dialog, Shift/Ctrl+Enter confirms |
 | #311 | Menu reorganisation | fixed (partly) | **Done (web)**: one File menu + one toolbar |
-| #1016 | User-configurable menu | open | **Planned (P4)**: configurable toolbar for simplified school mode |
+| #1016 | User-configurable menu | open | **Partly done (web.2)**: "Simplified toolbars?" preference; configurable menu planned |
 | #393 | Sample files in the source tree | open | **Done (web)**: 3 examples bundled (`main/web/src/examples/`) |
 | #377 | Option to include a framing item | open | **Planned (P3)**: needs clarification with the desktop team; web already offers framed/unframed diagrams |
 | #1240 | Packaging / distribution | open | **N/A**: static folder for any web server; PWA install planned (P4) |
@@ -56,14 +56,14 @@ corresponding generator so the known desktop bugs are not repeated.
 |---|---|---|---|
 | #1242 | Export mistake in C++, C#, Java etc. | open | **Planned**: regression test once the issue details are known |
 | #1239 | Comment association to declarations | fixed | **Planned**: comments attached to the element they belong to |
-| #1238 | EXIT with "exit" semantics to Python | fixed | **Planned**: `exit n` maps to `sys.exit(n)` |
+| #1238 | EXIT with "exit" semantics to Python | fixed | **Done (web.2)**: `exit n` maps to `sys.exit(n)` |
 | #1237 | Turtle stuff to Java / Python | fixed | **Planned (P3)** with Turtleizer |
-| #1236 | Group export duplicates subroutines | open | **Planned (P3)**: each routine emitted once (topological order, set of emitted names) |
+| #1236 | Group export duplicates subroutines | open | **Done (web.2)** for single-file export with "involve called subroutines": each routine emitted once |
 | #1235 | Oberon module name qualification | fixed | **Out of scope** (no Oberon generator planned yet) |
 | #1234 | File API code missing for nested diagrams | fixed | **Planned**: include runtime helpers when any reachable diagram uses them |
 | #1233 | Types of C array parameters | fixed | **Planned**: parameter types parsed by the header parser |
-| #1232 | Result type `void` = procedure | fixed | **Planned**: header parser treats `void` as "no result" |
-| #1218 | JavaScript generator: W3C File API | open | **Planned (P2)**: JavaScript is the first generator |
+| #1232 | Result type `void` = procedure | fixed | **Done (web.2)**: header parser treats `void` as "no result" (unit test) |
+| #1218 | JavaScript generator: W3C File API | open | **Partly done (web.2)**: JavaScript export exists; File API helpers planned |
 | #1210 | "No conversion" option ignored | fixed | **Planned**: option honoured by every generator, tested |
 | #1208 | bash export lacks Boolean expressions | open | **Planned (P3)** |
 | #1170, #357 | COBOL export | partly | **Out of scope** for now |
@@ -71,7 +71,7 @@ corresponding generator so the known desktop bugs are not repeated.
 | #967 | ARM code | partly (prototype) | **Out of scope** |
 | #965, #981, #1023, #883, #781 | Julia, Octave, Haxe, PowerShell export | open | **Out of scope** for now; the AST-based design makes them cheap to add later |
 | #850 | Template-based code export | open | **Planned (P3)**: evaluate templates on top of the AST |
-| #725 | Python division operators | fixed | **Planned**: `div` maps to `//`, `/` stays `/` |
+| #725 | Python division operators | fixed | **Done (web.2)**: `div` maps to `//`, `/` stays `/` (unit test) |
 | #440 | PapDesigner export / import | partly (export) | **Out of scope** |
 | #237 | BASH generator improvements | partly | **Planned (P3)** |
 | #29 | C/C++ header files | open | **Out of scope** for now |

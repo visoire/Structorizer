@@ -79,14 +79,29 @@ Write the fix list below before Phase 2 starts.
 
 ---
 
+## Phase 1f – Desktop parity round (3.32.35-web.2, 2026-11-18) ✅
+
+Done in one round, see `../CHANGELOG.md`: desktop menu bar, side panel (Code preview,
+Arranger index), several open diagrams, code export (6 languages, `src/core/gen`), PNG
+multiple / EMF / PDF / SVG / print / clipboard, find/replace, transmute, outsource,
+preferences dialog (incl. parser keywords), light/dark mode, context menu, docs page
+(`main/web/docs`), MCP server (`main/mcp`). Also done from Phase 1e: P1-27 (context menu),
+P1-30 (transmute, partly: no merge of several instructions yet), P1-31 (print).
+
+Open from this round:
+- [ ] Real iPad test of long press (context menu vs. drag) and pinch zoom.
+- [ ] Open the EMF export in Word/LibreOffice and the PDF in a PDF reader (structure is unit-tested, visual check pending).
+- [ ] Code export: compile/run the generated Java and C++ of the examples once (manual).
+- [ ] Register `structorizer-cli mcp` in WorkCraft as a Craft app (other repository, needs the owner's go).
+
 ## Phase 1e – Small follow-ups (can run before or in parallel to Phase 2)
 
 - [ ] **P1-26 PWA.** `public/manifest.webmanifest` (name, icons 192/512 PNG, `display: standalone`), a small service worker that precaches the build (no runtime caching of other origins). Done when: Chrome "Install app" works and the app opens offline.
-- [ ] **P1-27 Context menu.** Long press / right click on an element opens a small sheet with edit, delete, copy, cut, paste, duplicate, disable, collapse (D-17 asks for a context sheet).
+- [x] **P1-27 Context menu.** Done in 3.32.35-web.2. Long press / right click on an element opens a small sheet with edit, delete, copy, cut, paste, duplicate, disable, collapse (D-17 asks for a context sheet).
 - [ ] **P1-28 Multi-selection.** Shift+↑/↓ extends the selection to a contiguous range in one sequence; delete/cut/copy/move work on the range (desktop key bindings).
 - [ ] **P1-29 Branch head colours** (desktop 3.32-30): tap a branch triangle of IF/CASE to colour it; data model and file format already support it.
 - [ ] **P1-30 Transmute** (Ctrl+T): change element type where sensible (instruction ↔ call ↔ jump, while ↔ repeat, merge/split instructions).
-- [ ] **P1-31 Print** (Ctrl+P): print stylesheet that shows only the diagram.
+- [x] **P1-31 Print** (Ctrl+P): done in 3.32.35-web.2.
 
 ## Phase 2 – Language and executor (specs follow before start)
 
@@ -103,6 +118,6 @@ cover desktop issues #980, #408, #530, #800, see `../docs/issues-review.md`) and
 - P2-07 Variable watch, breakpoints, call stack.
 - P2-08 Multi-diagram pool (open several, call subroutines by name + arity).
 - P2-09 Runtime analysis overlay (execution counts, coverage).
-- P2-10 Code export JavaScript + Python from the AST (D-15); tests from issues #725, #1238, #1232, #1210.
+- P2-10 Move the token-based code export (done in 3.32.35-web.2) onto the AST once the parser exists; keep the tests of #725, #1238, #1232.
 
 ## Phase 3+ – see `04-roadmap.md`

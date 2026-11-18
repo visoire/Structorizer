@@ -2,6 +2,10 @@
 node_modules/
 main/web/dist/
 main/web/tests/out/
+main/mcp/dist/
+
+# Structorizer User Guide PDF belongs to the desktop project (see README)
+main/web/public/docs/*.pdf
 
 # original desktop sources and private notes (not part of this repository)
 sourcecode/

@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { useEffect, useRef, useState } from 'react';
-import { readNsd, writeNsd } from '../core/io';
-import { createDiagram, findById, STRUCTURED_KINDS, type ElementKind } from '../core/model';
-import { EXAMPLES } from '../examples';
+import { useEffect, useState } from 'react';
+import { findById, STRUCTURED_KINDS, type ElementKind } from '../core/model';
+import { parseSignature } from '../core/lang/analyze';
 import { translator, type TKey } from '../i18n';
 import { isDirty, useStore } from '../store/diagramStore';
+import { resolvedTheme, usePrefs } from '../store/prefsStore';
+import { actions } from './actions';
+import { ContextMenu, Dialogs } from './Dialogs';
 import { DiagramView } from './DiagramView';
-import { DiagramEditor, ElementEditor, Modal } from './ElementEditor';
-import { APP_VERSION, exportPng, exportSvg, forgetSaveHandle, pickFile, readFile, saveDiagram } from './exporters';
+import { DiagramEditor, ElementEditor } from './ElementEditor';
+import { loadSession, saveSession } from './exporters';
 import { Icon, KindIcon } from './icons';
+import { MenuBar } from './MenuBar';
+import { SidePanel } from './SidePanel';
 
 const KINDS: ElementKind[] = ['instruction', 'alternative', 'case', 'for', 'while', 'repeat', 'forever', 'call', 'jump', 'parallel', 'try'];
 
@@ -18,280 +22,198 @@ const KEY_INSERT: Record<string, ElementKind> = {
 };
 const CTRL_KEY_INSERT: Record<string, ElementKind> = { F7: 'forever', F6: 'parallel', F5: 'try' };
 
-const AUTOSAVE_KEY = 'structorizer-web:current';
-const REPO_URL = 'https://github.com/visoire/Structorizer';
-
-function ToolButton({ label, onClick, disabled, children, pressed, wide }: {
-  label: string; onClick: (e: React.MouseEvent) => void; disabled?: boolean; children: React.ReactNode; pressed?: boolean; wide?: boolean;
+function ToolButton({ label, onClick, disabled, children, pressed }: {
+  label: string; onClick: (e: React.MouseEvent) => void; disabled?: boolean; children: React.ReactNode; pressed?: boolean;
 }) {
   return (
-    <button type="button" className={'tool' + (wide ? ' wide' : '')} title={label} aria-label={label}
-      aria-pressed={pressed} disabled={disabled} onClick={onClick}>
+    <button type="button" className="tool" title={label} aria-label={label} aria-pressed={pressed} disabled={disabled} onClick={onClick}>
       {children}
-      {wide && <span className="tool-label">{label}</span>}
     </button>
   );
 }
 
 export function App() {
   const s = useStore();
-  const t = translator(s.lang);
+  const p = usePrefs();
+  const t = translator(p.lang);
   const dirty = isDirty(s);
-  const [menu, setMenu] = useState<'file' | null>(null);
-  const [about, setAbout] = useState(false);
   const [storageOk, setStorageOk] = useState(true);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [restored, setRestored] = useState(false);
 
   const sel = s.selection;
   const selEl = sel?.t === 'el' ? findById(s.diagram, sel.id)?.el ?? null : null;
-  const hasEl = !!selEl;
 
-  // ---------- restore + autosave (local only, D-03)
+  // ---------- theme (light / dark / system)
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(AUTOSAVE_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as { xml: string; fileName: string | null };
-        const { diagram } = readNsd(saved.xml);
-        useStore.getState().load(diagram, saved.fileName);
-      }
-    } catch { /* corrupt or blocked storage: start empty */ }
+    const apply = () => { document.documentElement.dataset.theme = resolvedTheme(p.theme); };
+    apply();
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, [p.theme]);
+  useEffect(() => { document.documentElement.lang = p.lang; }, [p.lang]);
+
+  // ---------- restore + autosave of all open diagrams (local only)
+  useEffect(() => {
+    // on tablets and phones the side panel overlays the diagram: start with it closed
+    if (window.innerWidth < 1100 && usePrefs.getState().panelOpen) usePrefs.getState().set({ panelOpen: false });
+    const session = loadSession();
+    if (session) useStore.getState().restoreSession(session.docs, session.active);
+    setRestored(true);
   }, []);
-
   useEffect(() => {
+    if (!restored) return;
     const h = setTimeout(() => {
-      try {
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ xml: writeNsd(s.diagram, APP_VERSION), fileName: s.fileName, ts: Date.now() }));
-        setStorageOk(true);
-      } catch {
-        setStorageOk(false);
-      }
+      const docs = useStore.getState().allDocs();
+      setStorageOk(saveSession(docs.map((d) => ({ diagram: d.diagram, fileName: d.fileName })), 0));
     }, 800);
     return () => clearTimeout(h);
-  }, [s.diagram, s.fileName]);
-
+  }, [s.diagram, s.docs, s.fileName, restored]);
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => { if (!storageOk && isDirty(useStore.getState())) e.preventDefault(); };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [storageOk]);
 
-  useEffect(() => { document.documentElement.lang = s.lang; }, [s.lang]);
-
-  // toast auto-hide
+  // ---------- toast auto-hide
   useEffect(() => {
     if (!s.message) return;
     const h = setTimeout(() => useStore.setState({ message: null }), s.message.kind === 'error' ? 7000 : 3500);
     return () => clearTimeout(h);
   }, [s.message]);
 
-  // close menu on outside tap
-  useEffect(() => {
-    if (!menu) return;
-    const close = (e: PointerEvent) => { if (!menuRef.current?.contains(e.target as Node)) setMenu(null); };
-    window.addEventListener('pointerdown', close);
-    return () => window.removeEventListener('pointerdown', close);
-  }, [menu]);
-
-  // ---------- file actions
-  const confirmDiscard = () => !isDirty(useStore.getState()) || window.confirm(t('discardChanges'));
-
-  const doNew = () => {
-    if (!confirmDiscard()) return;
-    forgetSaveHandle();
-    useStore.getState().load(createDiagram(), null);
-    setMenu(null);
-  };
-
-  const loadXml = (xml: string, name: string | null) => {
-    try {
-      const { diagram, warnings } = readNsd(xml);
-      forgetSaveHandle();
-      useStore.getState().load(diagram, name);
-      useStore.getState().requestFit();
-      if (warnings.length > 0) useStore.getState().notify(`${t('loadedWithWarnings')}: ${warnings.slice(0, 3).join(' ')}`);
-    } catch (e) {
-      useStore.getState().notify(`${t('openFailed')}: ${(e as Error).message}`, 'error');
-    }
-  };
-
-  const doOpen = async () => {
-    setMenu(null);
-    if (!confirmDiscard()) return;
-    const file = await pickFile();
-    if (!file) return;
-    try {
-      const { diagram, warnings } = await readFile(file);
-      forgetSaveHandle();
-      useStore.getState().load(diagram, file.name);
-      useStore.getState().requestFit();
-      if (warnings.length > 0) useStore.getState().notify(`${t('loadedWithWarnings')}: ${warnings.slice(0, 3).join(' ')}`);
-    } catch (e) {
-      useStore.getState().notify(`${t('openFailed')}: ${(e as Error).message}`, 'error');
-    }
-  };
-
-  const doSave = async (saveAs = false) => {
-    setMenu(null);
-    try {
-      const name = await saveDiagram(useStore.getState().diagram, saveAs);
-      if (name) { useStore.getState().markSaved(name); useStore.getState().notify(`${t('saved')}: ${name}`); }
-    } catch (e) {
-      useStore.getState().notify((e as Error).message, 'error');
-    }
-  };
-
-  const labels: [string, string] = ['T', 'F'];
-  const doPng = async () => {
-    setMenu(null);
-    try { await exportPng(useStore.getState().diagram, labels); } catch (e) { useStore.getState().notify((e as Error).message, 'error'); }
-  };
-  const doSvg = () => { setMenu(null); exportSvg(useStore.getState().diagram, labels); };
-
-  const insert = (kind: ElementKind, e?: { shiftKey: boolean }) => {
-    const st = useStore.getState();
-    st.insert(kind, !!e?.shiftKey || st.insertBefore);
-    if (st.insertBefore) st.setInsertBefore(false);
-  };
-
-  // ---------- keyboard (only when no dialog is open)
+  // ---------- keyboard (desktop bindings; only when no dialog is open)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const st = useStore.getState();
-      if (st.editor || about) return;
+      if (st.editor || st.dialog) return;
       const target = e.target as HTMLElement;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable)) return;
       const ctrl = e.ctrlKey || e.metaKey;
       const k = e.key;
+      const lower = k.length === 1 ? k.toLowerCase() : k;
       let handled = true;
-      if (!ctrl && !e.altKey && KEY_INSERT[k]) st.insert(KEY_INSERT[k], e.shiftKey);
-      else if (ctrl && !e.altKey && CTRL_KEY_INSERT[k]) st.insert(CTRL_KEY_INSERT[k], e.shiftKey);
-      else if (ctrl && (k === 'z' || k === 'Z')) { if (e.shiftKey) st.redo(); else st.undo(); }
-      else if (ctrl && (k === 'y' || k === 'Y')) st.redo();
-      else if (ctrl && (k === 'c' || k === 'C' || k === 'Insert')) st.copy();
-      else if (ctrl && (k === 'x' || k === 'X')) st.cut();
-      else if (ctrl && (k === 'v' || k === 'V')) st.paste();
-      else if (e.shiftKey && k === 'Delete') st.cut();
-      else if (e.shiftKey && k === 'Insert') st.paste();
-      else if (ctrl && (k === 's' || k === 'S')) void doSave(e.altKey);
-      else if (ctrl && (k === 'o' || k === 'O')) void doOpen();
-      else if (ctrl && (k === 'e' || k === 'E')) void doPng();
-      else if (ctrl && k === '7') st.toggleDisabled();
-      else if (ctrl && k === 'ArrowUp') st.shift(-1);
-      else if (ctrl && k === 'ArrowDown') st.shift(1);
+      if (!ctrl && !e.altKey && KEY_INSERT[k]) actions.insert(KEY_INSERT[k], e.shiftKey);
+      else if (ctrl && !e.altKey && CTRL_KEY_INSERT[k]) actions.insert(CTRL_KEY_INSERT[k], e.shiftKey);
+      else if (ctrl && lower === 'z') { if (e.shiftKey) actions.redo(); else actions.undo(); }
+      else if (ctrl && lower === 'y') actions.redo();
+      else if (ctrl && (lower === 'c' || k === 'Insert')) actions.copy();
+      else if (ctrl && lower === 'x') actions.cut();
+      else if (ctrl && lower === 'v') actions.paste();
+      else if (ctrl && e.shiftKey && lower === 'd') void actions.copyPicture();
+      else if (ctrl && lower === 'd') actions.duplicate();
+      else if (e.shiftKey && k === 'Delete') actions.cut();
+      else if (e.shiftKey && k === 'Insert') actions.paste();
+      else if (ctrl && e.shiftKey && lower === 's') void actions.saveAll();
+      else if (ctrl && lower === 's') void actions.save(e.altKey);
+      else if (ctrl && lower === 'o') void actions.open();
+      else if (ctrl && lower === 'n') actions.newDiagram();
+      else if (ctrl && lower === 'e') void actions.exportPicture('png');
+      else if (ctrl && lower === 'p') actions.print();
+      else if (ctrl && lower === 'f') actions.find();
+      else if (ctrl && lower === 't') actions.transmute();
+      else if (ctrl && e.shiftKey && lower === 'x') actions.exportCode();
+      else if (ctrl && k === 'F11') actions.outsource();
+      else if (ctrl && lower === 'r') actions.planned();
+      else if (ctrl && k === '7') actions.disable();
+      else if (ctrl && (k === '+' || k === '=')) actions.zoomIn();
+      else if (ctrl && k === '-') actions.zoomOut();
+      else if (ctrl && k === '0') actions.zoomReset();
+      else if (ctrl && e.altKey && lower === 'v') usePrefs.getState().set({ switchTextComments: !usePrefs.getState().switchTextComments, commentsPlusText: false });
+      else if (ctrl && k === 'ArrowUp') actions.moveUp();
+      else if (ctrl && k === 'ArrowDown') actions.moveDown();
       else if (k === 'ArrowUp') st.navigate('up');
       else if (k === 'ArrowDown') st.navigate('down');
       else if (k === 'ArrowLeft') st.navigate('left');
       else if (k === 'ArrowRight') st.navigate('right');
-      else if (k === 'Delete' || k === 'Backspace') st.removeSelected();
-      else if (k === 'Enter') {
-        if (st.selection?.t === 'el') st.openEditor({ t: 'el', id: st.selection.id, isNew: false });
-        else if (st.selection?.t === 'root') st.openEditor({ t: 'root' });
-        else handled = false;
-      }
-      else if (e.code === 'NumpadSubtract') st.toggleCollapsed(true);
-      else if (e.code === 'NumpadAdd') st.toggleCollapsed(false);
-      else if (k === 'Escape') { st.select(null); setMenu(null); }
+      else if (k === 'Delete' || k === 'Backspace') actions.remove();
+      else if (e.altKey && k === 'Enter') actions.attributes();
+      else if (k === 'Enter') actions.editSelected();
+      else if (k === 'F1' && e.shiftKey) actions.about();
+      else if (k === 'F1' && e.altKey) actions.keys();
+      else if (k === 'F1') actions.docs('#user-guide');
+      else if (k === 'F4' && e.shiftKey) actions.togglePanel('code');
+      else if (k === 'F3' && e.shiftKey) actions.togglePanel('index');
+      else if (k === 'F4') usePrefs.getState().toggle('highlightVars');
+      else if (e.code === 'NumpadSubtract') actions.collapse();
+      else if (e.code === 'NumpadAdd') actions.expand();
+      else if (k === 'Escape') { st.select(null); st.openContextMenu(null); }
       else handled = false;
       if (handled) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [about, s.lang]);
+  }, []);
 
-  const title = s.diagram.text[0] ?? '???';
+  const title = parseSignature(s.diagram).name;
+  const docCount = s.docs.length + 1;
+  const hasEl = !!selEl;
 
   return (
-    <div className="app">
+    <div className={'app' + (p.panelOpen ? ' with-panel' : '')}>
       <header className="topbar">
         <div className="brand">
           <span className="logo" aria-hidden="true"><KindIcon kind="alternative" /></span>
-          <span className="brand-name">{t('appName')}</span>
-          <span className="doc-name" title={s.fileName ?? title}>{s.fileName ?? title}{dirty ? ' •' : ''}</span>
+          <span className="brand-name">Structorizer</span>
         </div>
-        <nav className="top-actions" aria-label={t('file')}>
-          <div className="menu-wrap" ref={menuRef}>
-            <ToolButton label={t('file')} wide onClick={() => setMenu(menu ? null : 'file')} pressed={menu === 'file'}><Icon name="open" /></ToolButton>
-            {menu === 'file' && (
-              <div className="menu" role="menu">
-                <button role="menuitem" onClick={doNew}><Icon name="new" /> {t('new')}</button>
-                <button role="menuitem" onClick={() => void doOpen()}><Icon name="open" /> {t('open')} <kbd>Ctrl+O</kbd></button>
-                <button role="menuitem" onClick={() => void doSave(false)}><Icon name="save" /> {t('save')} <kbd>Ctrl+S</kbd></button>
-                <button role="menuitem" onClick={() => void doSave(true)}><Icon name="save" /> {t('saveAs')}</button>
-                <hr />
-                <button role="menuitem" onClick={() => void doPng()}><Icon name="image" /> {t('exportPng')} <kbd>Ctrl+E</kbd></button>
-                <button role="menuitem" onClick={doSvg}><Icon name="image" /> {t('exportSvg')}</button>
-                <hr />
-                <div className="menu-label">{t('examples')}</div>
-                {EXAMPLES.map((ex) => (
-                  <button key={ex.id} role="menuitem" onClick={() => { setMenu(null); if (confirmDiscard()) loadXml(ex.xml, null); }}>{ex.title}</button>
-                ))}
-              </div>
-            )}
-          </div>
-          <ToolButton label={t('save')} onClick={() => void doSave(false)}><Icon name="save" /></ToolButton>
-          <span className="sep" />
-          <ToolButton label={t('undo')} disabled={s.past.length === 0} onClick={s.undo}><Icon name="undo" /></ToolButton>
-          <ToolButton label={t('redo')} disabled={s.future.length === 0} onClick={s.redo}><Icon name="redo" /></ToolButton>
-          <span className="sep" />
-          <ToolButton label={t('zoomOut')} onClick={() => s.setZoom(s.zoom / 1.2)}><Icon name="zoomOut" /></ToolButton>
-          <button type="button" className="zoom-label" title={t('zoomFit')} onClick={() => s.setZoom(1)}>{Math.round(s.zoom * 100)}%</button>
-          <ToolButton label={t('zoomIn')} onClick={() => s.setZoom(s.zoom * 1.2)}><Icon name="zoomIn" /></ToolButton>
-          <ToolButton label={t('zoomFit')} onClick={s.requestFit}><Icon name="zoomFit" /></ToolButton>
-          <span className="sep" />
-          <button type="button" className="lang" onClick={() => s.setLang(s.lang === 'de' ? 'en' : 'de')} title={t('language')}>
-            {s.lang === 'de' ? 'EN' : 'DE'}
-          </button>
-          <ToolButton label={t('about')} onClick={() => setAbout(true)}><Icon name="info" /></ToolButton>
-        </nav>
+        <MenuBar />
+        <div className="doc-title" title={s.fileName ?? s.diagram.text.join(' ')}>
+          <span className="doc-name">{s.fileName ?? title}</span>{dirty && <span className="dot" aria-label={t('unsaved')}> •</span>}
+        </div>
+        <div className="top-quick">
+          <ToolButton label={t('undo')} disabled={s.past.length === 0} onClick={actions.undo}><Icon name="undo" /></ToolButton>
+          <ToolButton label={t('redo')} disabled={s.future.length === 0} onClick={actions.redo}><Icon name="redo" /></ToolButton>
+          <ToolButton label={t('save')} onClick={() => void actions.save(false)}><Icon name="save" /></ToolButton>
+          <ToolButton label={t('openPanel')} pressed={p.panelOpen} onClick={() => actions.togglePanel()}>
+            <Icon name="panel" />{docCount > 1 && <span className="badge">{docCount}</span>}
+          </ToolButton>
+        </div>
       </header>
 
-      <div className="palette" role="toolbar" aria-label="Elements">
-        {KINDS.map((k) => (
-          <ToolButton key={k} label={t(('kind.' + k) as TKey)} onClick={(e) => insert(k, e)}><KindIcon kind={k} /></ToolButton>
-        ))}
-        <ToolButton label={t('insertBefore')} pressed={s.insertBefore} onClick={() => s.setInsertBefore(!s.insertBefore)}><Icon name="before" /></ToolButton>
-        <span className="sep" />
-        <ToolButton label={t('edit')} disabled={!hasEl && sel?.t !== 'root'} onClick={() => {
-          if (sel?.t === 'el') s.openEditor({ t: 'el', id: sel.id, isNew: false });
-          else if (sel?.t === 'root') s.openEditor({ t: 'root' });
-        }}><Icon name="edit" /></ToolButton>
-        <ToolButton label={t('delete')} disabled={!hasEl} onClick={s.removeSelected}><Icon name="delete" /></ToolButton>
-        <ToolButton label={t('cut')} disabled={!hasEl} onClick={s.cut}><Icon name="cut" /></ToolButton>
-        <ToolButton label={t('copy')} disabled={!hasEl} onClick={s.copy}><Icon name="copy" /></ToolButton>
-        <ToolButton label={t('paste')} disabled={!s.clipboard} onClick={s.paste}><Icon name="paste" /></ToolButton>
-        <ToolButton label={t('duplicate')} disabled={!hasEl} onClick={s.duplicate}><Icon name="duplicate" /></ToolButton>
-        <ToolButton label={t('moveUp')} disabled={!hasEl} onClick={() => s.shift(-1)}><Icon name="up" /></ToolButton>
-        <ToolButton label={t('moveDown')} disabled={!hasEl} onClick={() => s.shift(1)}><Icon name="down" /></ToolButton>
-        <ToolButton label={t('disable')} disabled={!hasEl} pressed={selEl?.disabled} onClick={s.toggleDisabled}><Icon name="disable" /></ToolButton>
-        <ToolButton label={t('collapse')} disabled={!selEl || !STRUCTURED_KINDS.has(selEl.kind)} pressed={!!selEl?.collapsed}
-          onClick={() => s.toggleCollapsed()}><Icon name="collapse" /></ToolButton>
-        <ToolButton label={t('diagramProps')} onClick={() => s.openEditor({ t: 'root' })}><Icon name="diagram" /></ToolButton>
+      <div className="toolbar" role="toolbar" aria-label={t('elements')}>
+        <div className="tool-group">
+          {KINDS.map((k) => (
+            <ToolButton key={k} label={t(('kind.' + k) as TKey)} onClick={(e) => actions.insert(k, e.shiftKey)}><KindIcon kind={k} /></ToolButton>
+          ))}
+          <ToolButton label={t('insertBefore')} pressed={s.insertBefore} onClick={() => s.setInsertBefore(!s.insertBefore)}><Icon name="before" /></ToolButton>
+        </div>
+        {!p.simplifiedToolbar && (
+          <div className="tool-group">
+            <ToolButton label={t('edit')} onClick={actions.editSelected}><Icon name="edit" /></ToolButton>
+            <ToolButton label={t('delete')} disabled={!hasEl} onClick={actions.remove}><Icon name="delete" /></ToolButton>
+            <ToolButton label={t('cut')} disabled={!hasEl} onClick={actions.cut}><Icon name="cut" /></ToolButton>
+            <ToolButton label={t('copy')} disabled={!hasEl} onClick={actions.copy}><Icon name="copy" /></ToolButton>
+            <ToolButton label={t('paste')} disabled={!s.clipboard} onClick={actions.paste}><Icon name="paste" /></ToolButton>
+            <ToolButton label={t('moveUp')} disabled={!hasEl} onClick={actions.moveUp}><Icon name="up" /></ToolButton>
+            <ToolButton label={t('moveDown')} disabled={!hasEl} onClick={actions.moveDown}><Icon name="down" /></ToolButton>
+            <ToolButton label={t('disable')} disabled={!hasEl} pressed={selEl?.disabled} onClick={actions.disable}><Icon name="disable" /></ToolButton>
+            <ToolButton label={selEl?.collapsed ? t('expand') : t('collapse')} disabled={!selEl || !STRUCTURED_KINDS.has(selEl.kind)}
+              pressed={!!selEl?.collapsed} onClick={actions.toggleCollapse}><Icon name="collapse" /></ToolButton>
+          </div>
+        )}
+        <div className="tool-group push">
+          <ToolButton label={t('zoomOut')} onClick={actions.zoomOut}><Icon name="zoomOut" /></ToolButton>
+          <button type="button" className="zoom-label" title={t('zoomReset')} onClick={actions.zoomReset}>{Math.round(s.zoom * 100)}%</button>
+          <ToolButton label={t('zoomIn')} onClick={actions.zoomIn}><Icon name="zoomIn" /></ToolButton>
+          <ToolButton label={t('zoomFit')} onClick={actions.zoomFit}><Icon name="zoomFit" /></ToolButton>
+        </div>
       </div>
 
       <main className="workspace">
         <DiagramView />
+        <SidePanel />
       </main>
 
       <footer className="statusbar">
-        <span>{s.selection ? (selEl ? t(('kind.' + selEl.kind) as TKey) : s.selection.t === 'root' ? t('diagramProps') : '∅') : t('selectHint')}</span>
+        <span>{sel ? (selEl ? t(('kind.' + selEl.kind) as TKey) : sel.t === 'root' ? t('diagramProps').replace(/\s*\.\.\.$/, '') : '∅') : t('selectHint')}</span>
         <span className="status-right">{storageOk ? t('autosaved') : t('unsaved')}</span>
       </footer>
 
       <ElementEditor />
       <DiagramEditor />
-
-      {about && (
-        <Modal title={`${t('appName')} ${APP_VERSION}`} onClose={() => setAbout(false)} cancelLabel={t('close')}>
-          <p>{t('aboutText')}</p>
-          <p><strong>{t('privacy')}</strong></p>
-          <p>{t('sourceCode')}: <a href={REPO_URL} target="_blank" rel="noopener noreferrer">{REPO_URL}</a> · Structorizer Desktop: <a href="https://github.com/fesch/Structorizer.Desktop" target="_blank" rel="noopener noreferrer">fesch/Structorizer.Desktop</a></p>
-          <h3>{t('keyboard')}</h3>
-          <p className="small">{t('keysList')}</p>
-          <p className="small hint">{t('keysNote')}</p>
-        </Modal>
-      )}
+      <Dialogs />
+      <ContextMenu />
+      <div id="print-area" aria-hidden="true" />
 
       {s.message && (
         <div className={'toast ' + s.message.kind} role="status" onClick={() => useStore.setState({ message: null })}>{s.message.text}</div>

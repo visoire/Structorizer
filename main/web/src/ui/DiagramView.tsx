@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Interactive diagram: tap selects, double tap edits, drag (mouse) or long press (touch) moves, pinch zooms.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createCanvasMeasure, createLayoutEngine, hitTest, nearestGap, type Gap, type Hit, type Scene } from '../core/layout';
+import { createLayoutEngine, hitTest, nearestGap, type Gap, type Hit, type Scene } from '../core/layout';
 import { isInside, sameRef } from '../core/model/tree';
 import { sceneToSvg } from '../core/render/svg';
 import { useStore, type Selection } from '../store/diagramStore';
 import { translator } from '../i18n';
+import { resolvedTheme, usePrefs } from '../store/prefsStore';
+import { measure, viewLayoutOptions } from './exporters';
 
 const LONG_PRESS_MS = 450;
 const DRAG_THRESHOLD = 6;
@@ -18,6 +20,8 @@ interface PressState {
   dragging: boolean;
   timer: number | null;
   cancelled: boolean;
+  /** moved after the drag started (otherwise a long press opens the context menu) */
+  movedInDrag?: boolean;
 }
 
 function selectionOf(hit: Hit | null): Selection {
@@ -38,15 +42,21 @@ export function DiagramView() {
   const diagram = useStore((s) => s.diagram);
   const selection = useStore((s) => s.selection);
   const zoom = useStore((s) => s.zoom);
-  const lang = useStore((s) => s.lang);
-  const t = translator(lang);
-
-  const engine = useMemo(
-    () => createLayoutEngine(createCanvasMeasure(), { trueLabel: 'T', falseLabel: 'F' }),
-    [],
-  );
+  const prefs = usePrefs();
+  const t = translator(prefs.lang);
+  const optKey = [prefs.cOperators, prefs.highlightVars, prefs.showComments, prefs.switchTextComments, prefs.commentsPlusText].join();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const engine = useMemo(() => createLayoutEngine(measure(), viewLayoutOptions()), [optKey]);
   const scene: Scene = useMemo(() => engine.layout(diagram), [engine, diagram]);
-  const svg = useMemo(() => sceneToSvg(scene, { scale: zoom }), [scene, zoom]);
+  const [sysDark, setSysDark] = useState(() => resolvedTheme('system') === 'dark');
+  useEffect(() => {
+    const mq = matchMedia('(prefers-color-scheme: dark)');
+    const on = () => setSysDark(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  const dark = (prefs.theme === 'dark' || (prefs.theme === 'system' && sysDark)) && prefs.darkDiagram;
+  const svg = useMemo(() => sceneToSvg(scene, { scale: zoom, theme: dark ? 'dark' : 'light' }), [scene, zoom, dark]);
 
   const hostRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -126,6 +136,8 @@ export function DiagramView() {
       }
       return;
     }
+    if (moved > 8) p.movedInDrag = true;
+    if (!p.movedInDrag) return;
     const pt = toScene(e.clientX, e.clientY);
     setGap(validGap(nearestGap(scene, pt.x, pt.y), (p.hit as Extract<Hit, { t: 'el' }>).id));
   };
@@ -139,7 +151,8 @@ export function DiagramView() {
     press.current = null;
     const store = useStore.getState();
     if (p.dragging) {
-      if (!cancelled && gap && p.hit?.t === 'el') store.move(p.hit.id, { seq: gap.ref, index: gap.index });
+      if (!cancelled && gap && p.hit?.t === 'el' && p.movedInDrag) store.move(p.hit.id, { seq: gap.ref, index: gap.index });
+      else if (!cancelled && !p.movedInDrag && p.type !== 'mouse') store.openContextMenu({ x: e.clientX, y: e.clientY });
       setDragId(null);
       setGap(null);
       return;
@@ -209,7 +222,7 @@ export function DiagramView() {
     </svg>
   );
 
-  const selectedComment = selHit?.t === 'el' && selHit.comment.length > 0 ? selHit.comment.join('\n') : '';
+  const selectedComment = prefs.showComments && selHit?.t === 'el' && selHit.comment.length > 0 ? selHit.comment.join('\n') : '';
 
   return (
     <div className="diagram-scroll" ref={scrollRef}
@@ -222,7 +235,14 @@ export function DiagramView() {
         onPointerMove={onPointerMove}
         onPointerUp={(e) => finish(e, false)}
         onPointerCancel={(e) => finish(e, true)}
-        onContextMenu={(e) => { if (press.current && press.current.type !== 'mouse') e.preventDefault(); }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (press.current && press.current.type !== 'mouse') return;
+          const pt = toScene(e.clientX, e.clientY);
+          const sel = selectionOf(hitTest(scene, pt.x, pt.y));
+          useStore.getState().select(sel);
+          useStore.getState().openContextMenu({ x: e.clientX, y: e.clientY });
+        }}
         role="application"
         aria-label={t('appName')}
       >

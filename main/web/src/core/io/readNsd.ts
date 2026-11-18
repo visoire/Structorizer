@@ -14,9 +14,12 @@ const ELEMENT_TAGS = new Set([
 ]);
 
 function childElements(node: globalThis.Element, tag?: string): globalThis.Element[] {
+  // childNodes instead of firstElementChild: works with browser DOM and with xmldom (MCP server, Node)
   const out: globalThis.Element[] = [];
-  for (let c = node.firstElementChild; c; c = c.nextElementSibling) {
-    if (!tag || c.localName === tag) out.push(c);
+  const kids = node.childNodes;
+  for (let i = 0; i < kids.length; i++) {
+    const c = kids[i] as globalThis.Element;
+    if (c.nodeType === 1 && (!tag || (c.localName ?? c.nodeName) === tag)) out.push(c);
   }
   return out;
 }
@@ -46,7 +49,7 @@ export function readNsd(xml: string): ReadResult {
   const err = doc.getElementsByTagName('parsererror')[0];
   if (err) throw new NsdError('Not a valid XML file: ' + (err.textContent ?? '').trim().slice(0, 200));
   const rootNode = doc.documentElement;
-  if (!rootNode || rootNode.localName !== 'root') throw new NsdError('Not a Structorizer diagram (missing <root>).');
+  if (!rootNode || (rootNode.localName ?? rootNode.nodeName) !== 'root') throw new NsdError('Not a Structorizer diagram (missing <root>).');
 
   const keywords: Keywords = { ...DEFAULT_KEYWORDS };
   for (const key of KEYWORD_KEYS) {
@@ -82,7 +85,7 @@ export function readNsd(xml: string): ReadResult {
 
   const readElement = (node: globalThis.Element): Element => {
     const base = common(node);
-    switch (node.localName) {
+    switch (node.localName ?? node.nodeName) {
       case 'instruction': return { ...base, kind: 'instruction' };
       case 'call': return { ...base, kind: 'call', isMethodDeclaration: attr(node, 'ismethoddecl') === '1' || undefined };
       case 'jump': return { ...base, kind: 'jump' };

@@ -3,7 +3,9 @@
 // Shapes and proportions follow lu.fisch.structorizer.elements.*.prepareDraw()/draw().
 import type { Diagram, Element, Hex, SeqRef } from '../model/types';
 import { slotsOf } from '../model/tree';
-import { HALF, LINE_H, P, ROOT_CORNER, baseline, displayLine, type MeasureFn } from './measure';
+import { HALF, LINE_H, P, ROOT_CORNER, baseline, type MeasureFn } from './measure';
+import { displaySpans, displayText, type Span } from './display';
+import { diagramVariables } from '../lang/analyze';
 
 // ---------------------------------------------------------------- scene types
 
@@ -13,7 +15,7 @@ export type Item =
   | ({ t: 'rect'; fill?: string; stroke?: boolean; rx?: number } & Rect)
   | { t: 'line'; x1: number; y1: number; x2: number; y2: number; dashed?: boolean }
   | { t: 'poly'; points: [number, number][]; fill?: string; closed?: boolean }
-  | { t: 'text'; x: number; y: number; s: string; anchor?: 'start' | 'middle' | 'end'; bold?: boolean; muted?: boolean }
+  | { t: 'text'; x: number; y: number; s: string; anchor?: 'start' | 'middle' | 'end'; bold?: boolean; muted?: boolean; spans?: Span[] }
   | ({ t: 'hatch' } & Rect);
 
 export type Hit =
@@ -33,6 +35,14 @@ export interface Scene {
 }
 
 export interface LayoutOptions {
+  /** Desktop "Show operators in C style?" */
+  cOperators?: boolean;
+  /** Desktop "Highlight variables?" */
+  highlight?: boolean;
+  /** Desktop "Show comments?" (comment marks). Default true. */
+  showComments?: boolean;
+  /** Desktop "Switch text/comments?" (comments) and "Comments plus texts?" (both). */
+  textMode?: 'text' | 'comments' | 'both';
   /** Labels of the IF branches (desktop preAltT / preAltF). */
   trueLabel?: string;
   falseLabel?: string;
@@ -64,8 +74,24 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
   const elCache = new WeakMap<Element, Size>();
   const seqCache = new WeakMap<Element[], Size>();
 
+  const dopt = { cOperators: !!opts.cOperators };
+  const disp = (l: string) => displayText(l, dopt);
+  const mode = opts.textMode ?? 'text';
+  /** Comment lines shown in "comments plus texts" mode, per element (muted when drawn). */
+  const commentLines = (el: Element) => el.comment.filter((c, i, a) => c.trim() !== '' || i < a.length - 1);
+  /** The lines an instruction-like box or loop header shows in the current text mode. */
+  const shown = (el: Element): string[] => {
+    const c = commentLines(el);
+    if (mode === 'comments' && c.length > 0) return c;
+    if (mode === 'both' && c.length > 0 && el.kind !== 'alternative') return [...c, ...el.text];
+    return el.text;
+  };
+  const mutedCount = (el: Element) => (mode === 'both' && el.kind !== 'alternative' ? commentLines(el).length : 0);
+  let curVars: ReadonlySet<string> = new Set();
+  let curKeywords: Diagram['keywords'] | undefined;
+
   const textW = (lines: string[], bold = false) =>
-    lines.reduce((m, l) => Math.max(m, measure(displayLine(l), bold)), 0);
+    lines.reduce((m, l) => Math.max(m, measure(disp(l), bold)), 0);
 
   const isCollapsed = (el: Element) => !!el.collapsed && slotsOf(el).length > 0;
 
@@ -102,7 +128,7 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
   }
 
   function altMetrics(el: Extract<Element, { kind: 'alternative' }>) {
-    const lines = boxLines(el.text);
+    const lines = boxLines(shown(el));
     const n = lines.length;
     const t = { ...measureSeq(el.thenBranch) };
     const f = { ...measureSeq(el.elseBranch) };
@@ -110,7 +136,7 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
     const lF = measure(F) * 1.5 + P;
     t.w = Math.max(t.w, lT);
     f.w = Math.max(f.w, lF);
-    const headerW = altHeaderWidth(lines.map((l) => measure(displayLine(l))), t.w);
+    const headerW = altHeaderWidth(lines.map((l) => measure(disp(l))), t.w);
     const H = n * LINE_H + 2 * P - 1;
     return { lines, t, f, H, w: Math.ceil(Math.max(headerW, t.w + f.w)), h: H + Math.max(t.h, f.h) };
   }
@@ -121,7 +147,7 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
     const visible = hideDefault ? el.branches.length - 1 : el.branches.length;
     const discr = boxLines([el.text[0] ?? '']);
     const selectors = el.text.slice(1, 1 + visible);
-    const labelW = selectors.map((s) => measure(displayLine(s)));
+    const labelW = selectors.map((s) => measure(disp(s)));
     const cols = el.branches.slice(0, visible).map((b, i) => {
       const s = measureSeq(b);
       return { w: Math.max(s.w, labelW[i] + P), h: s.h };
@@ -158,7 +184,7 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
     const widths = [
       measure(TRY) + P,
       rTry.w + 2 * P,
-      HALF + measure(displayLine(catchLine)) + P,
+      HALF + measure(disp(catchLine)) + P,
       rCatch.w + 3 * P,
     ];
     if (showFinally) widths.push(HALF + measure(FINALLY) + P, rFin.w + 2 * P);
@@ -175,18 +201,18 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
     let s: Size;
     if (isCollapsed(el)) s = instrSize(collapsedText(el));
     else switch (el.kind) {
-      case 'instruction': s = instrSize(el.text); break;
-      case 'call': s = instrSize(el.text, P); break;
-      case 'jump': s = instrSize(el.text, HALF); break;
+      case 'instruction': s = instrSize(shown(el)); break;
+      case 'call': s = instrSize(shown(el), P); break;
+      case 'jump': s = instrSize(shown(el), HALF); break;
       case 'while':
       case 'for': {
-        const hd = instrSize(el.text);
+        const hd = instrSize(shown(el));
         const b = measureSeq(el.body);
         s = { w: Math.max(hd.w, b.w + P), h: hd.h + b.h };
         break;
       }
       case 'repeat': {
-        const ft = instrSize(el.text);
+        const ft = instrSize(shown(el));
         const b = measureSeq(el.body);
         s = { w: Math.max(ft.w, b.w + P), h: ft.h + b.h };
         break;
@@ -215,6 +241,8 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
   // ---- placing (top-down, emits items)
 
   function layout(d: Diagram): Scene {
+    curVars = opts.highlight ? diagramVariables(d) : new Set();
+    curKeywords = d.keywords;
     const items: Item[] = [];
     const hits: Hit[] = [];
     const gaps: Gap[] = [];
@@ -224,8 +252,12 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
     const rect = (r: Rect, fill?: string, stroke = true) => items.push({ t: 'rect', ...r, fill, stroke });
     const line = (x1: number, y1: number, x2: number, y2: number) => items.push({ t: 'line', x1, y1, x2, y2 });
 
-    const textLines = (lines: string[], x: number, y: number) =>
-      boxLines(lines).forEach((l, i) => text(x, y + HALF + i * LINE_H, displayLine(l)));
+    const spansOf = (l: string) => (opts.highlight ? displaySpans(l, { ...dopt, highlight: true, vars: curVars, keywords: curKeywords }) : undefined);
+    const textLines = (lines: string[], x: number, y: number, muted = 0) =>
+      boxLines(lines).forEach((l, i) => {
+        if (i < muted) text(x, y + HALF + i * LINE_H, l, { muted: true });
+        else text(x, y + HALF + i * LINE_H, disp(l), { spans: spansOf(l) });
+      });
 
     function placeSeq(seq: Element[], ref: SeqRef, x: number, y: number, w: number, h: number) {
       if (seq.length === 0) {
@@ -262,32 +294,32 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
       } else switch (el.kind) {
         case 'instruction':
           rect(box, fill);
-          textLines(el.text, x + HALF, y);
+          textLines(shown(el), x + HALF, y, mutedCount(el));
           break;
         case 'call':
           rect(box, fill);
           line(x + HALF, y, x + HALF, y + h);
           line(x + w - HALF, y, x + w - HALF, y + h);
-          textLines(el.text, x + P, y);
+          textLines(shown(el), x + P, y, mutedCount(el));
           break;
         case 'jump':
           rect(box, fill);
           items.push({ t: 'poly', points: [[x + HALF, y], [x, y + h / 2], [x + HALF, y + h]] });
-          textLines(el.text, x + P, y);
+          textLines(shown(el), x + P, y, mutedCount(el));
           break;
         case 'while':
         case 'for': {
-          const hh = instrSize(el.text).h;
+          const hh = instrSize(shown(el)).h;
           rect(box, fill);
-          textLines(el.text, x + HALF, y);
+          textLines(shown(el), x + HALF, y, mutedCount(el));
           setHead({ x, y, w, h: hh });
           placeSeq(el.body, { owner: el.id, slot: 'body' }, x + P, y + hh, w - P, h - hh);
           break;
         }
         case 'repeat': {
-          const fh = instrSize(el.text).h;
+          const fh = instrSize(shown(el)).h;
           rect(box, fill);
-          textLines(el.text, x + HALF, y + h - fh);
+          textLines(shown(el), x + HALF, y + h - fh, mutedCount(el));
           setHead({ x, y: y + h - fh, w, h: fh });
           placeSeq(el.body, { owner: el.id, slot: 'body' }, x + P, y, w - P, h - fh);
           break;
@@ -312,13 +344,13 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
           const coeffLeft = cy / (0 - tW);
           const coeffRight = cy / Math.max(1, w - tW);
           m.lines.forEach((l, i) => {
-            const s = displayLine(l);
+            const s = disp(l);
             const tw = measure(s);
             const by = 2 * P - P / 3 + (n - i - 1) * LINE_H;
             const leftSide = by / coeffLeft + tW;
             const bx = by / coeffRight + tW;
             const tx = x + HALF + leftSide + (bx - leftSide - tw) / 2;
-            text(Math.min(Math.max(tx, x + HALF), x + w - HALF - tw), y + P / 3 + i * LINE_H, s);
+            text(Math.min(Math.max(tx, x + HALF), x + w - HALF - tw), y + P / 3 + i * LINE_H, s, { spans: spansOf(l) });
           });
           const labelTop = y + m.H - LINE_H - 2;
           text(x + HALF / 2, labelTop, T);
@@ -348,7 +380,7 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
                 : m.H - (m.H * (cx - tipX)) / Math.max(1, x + w - tipX);
               line(cx, y + dy, cx, y + m.H);
             }
-            const label = displayLine(m.selectors[i] ?? '');
+            const label = disp(m.selectors[i] ?? '');
             const labelTop = y + m.H - LINE_H - 2;
             if (k === 1) text(cx + widths[i] / 2, labelTop, label, { anchor: 'middle' });
             else if (i < k - 1) text(cx + LABEL_INSET, labelTop, label);
@@ -356,10 +388,10 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
             cx += widths[i];
           }
           m.discr.forEach((l, i) => {
-            const s = displayLine(l);
+            const s = disp(l);
             const tw = measure(s);
             const tx = Math.min(Math.max(tipX - tw / 2, x + HALF), x + w - HALF - tw);
-            text(tx, y + HALF / 2 + i * LINE_H, s);
+            text(tx, y + HALF / 2 + i * LINE_H, s, { spans: spansOf(l) });
           });
           cx = x;
           for (let i = 0; i < k; i++) {
@@ -395,7 +427,7 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
           let cy = y + m.topH;
           placeSeq(el.tryBody, { owner: el.id, slot: 'try' }, x + P, cy, w - 2 * P, m.rTry.h);
           cy += m.rTry.h;
-          text(x + HALF, cy + HALF, displayLine(m.catchLine), { bold: true });
+          text(x + HALF, cy + HALF, disp(m.catchLine), { bold: true });
           cy += m.catchLabelH;
           placeSeq(el.catchBody, { owner: el.id, slot: 'catch' }, x + 2 * P, cy, w - 3 * P, m.rCatch.h);
           cy += m.rCatch.h + P;
@@ -407,7 +439,7 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
           break;
         }
       }
-      if (el.comment.some((c) => c.trim() !== '')) {
+      if (opts.showComments !== false && el.comment.some((c) => c.trim() !== '')) {
         // comment mark: light grey bar at the left edge of the element head (Element.drawCommentMark)
         const hd = (hits[hitIndex] as Extract<Hit, { t: 'el' }>).head;
         const markColor = el.color.toLowerCase() === 'c0c0c0' ? '#ffffff' : '#c0c0c0';
@@ -447,7 +479,7 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
       items.push({ t: 'poly', closed: true, points: [[bx + b, by], [bx + bw, by], [bx + bw, by + bh - b], [bx + bw - b, by + bh], [bx, by + bh], [bx, by + b]] });
       text(bx + HALF, by + (bh - LINE_H) / 2, inclText, { muted: true });
     }
-    title.forEach((l, i) => text(boxed ? P : HALF, inclH + (boxed ? P : HALF) + i * LINE_H, displayLine(l), { bold: true }));
+    title.forEach((l, i) => text(boxed ? P : HALF, inclH + (boxed ? P : HALF) + i * LINE_H, disp(l), { bold: true }));
     placeSeq(d.children, { owner: 'root' }, pad, inclH + titleH, W - 2 * pad, body.h);
 
     return { width: W + 1, height: H + 1, items, hits, gaps };
