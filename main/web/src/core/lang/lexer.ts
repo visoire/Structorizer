@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Tokenizer for the Structorizer element text language (lossless: whitespace is kept).
 // Phase 1 uses it for code export and highlighting; the Phase 2 parser builds on it.
+import type { Keywords } from '../model/types';
 
-export type TokKind = 'ws' | 'id' | 'num' | 'str' | 'op' | 'punct' | 'other';
-export interface Tok { k: TokKind; v: string }
+export type TokKind = 'ws' | 'id' | 'kw' | 'num' | 'str' | 'op' | 'punct' | 'other';
+export interface Tok { k: TokKind; v: string; kw?: keyof Keywords; pos?: number }
 
-const OPS = ['<-', ':=', '<=', '>=', '<>', '!=', '==', '&&', '||', '<<', '>>', '+=', '-=', '*=', '/=', '++', '--',
+const OPS = ['<-', ':=', '<=', '>=', '<>', '!=', '==', '&&', '||', '^^', '<<', '>>', '+=', '-=', '*=', '/=', '++', '--',
   '+', '-', '*', '/', '%', '<', '>', '=', '!', '&', '|', '^', '~', '?'];
 const PUNCT = new Set(['(', ')', '[', ']', '{', '}', ',', ';', '.', ':']);
 const UNICODE_OPS: Record<string, string> = { '←': '<-', '≤': '<=', '≥': '>=', '≠': '<>' };
@@ -119,4 +120,72 @@ export function stripKeywords(line: string, pre: string, post: string, ignoreCas
     s = s.slice(0, s.length - q.length).trim();
   }
   return s;
+}
+
+/** Join element text lines that end with a line-continuation backslash `\`. */
+export function joinContinuedLines(lines: string[]): string[] {
+  const out: string[] = [];
+  let buf = '';
+  for (const l of lines) {
+    if (l.trimEnd().endsWith('\\')) buf += l.trimEnd().slice(0, -1) + ' ';
+    else { out.push(buf + l); buf = ''; }
+  }
+  if (buf) out.push(buf);
+  return out;
+}
+
+const KW_FIELDS: ( Exclude<keyof Keywords, 'ignoreCase'> )[] = [
+  'preAlt', 'postAlt', 'preCase', 'postCase', 'preForIn', 'postForIn', 'preFor', 'postFor', 'stepFor',
+  'preWhile', 'postWhile', 'preRepeat', 'postRepeat', 'preLeave', 'preReturn', 'preExit', 'preThrow',
+  'input', 'output',
+];
+
+/**
+ * Keyword-aware tokenizer (P2-01): recognizes configured diagram keywords (including multi-word
+ * keywords such as "for each") and annotates matched tokens with `k: 'kw'` and `kw: key`.
+ */
+export function tokenizeWithKeywords(src: string, keywords: Keywords): Tok[] {
+  const base = tokenize(src);
+  const entries = KW_FIELDS
+    .map((key) => ({ key, words: tokenize(keywords[key].trim()).filter((t) => t.k !== 'ws').map((t) => t.v) }))
+    .filter((e) => e.words.length > 0)
+    .sort((a, b) => b.words.length - a.words.length);
+
+  const eq = (a: string, b: string) => (keywords.ignoreCase ? a.toLowerCase() === b.toLowerCase() : a === b);
+  const out: Tok[] = [];
+  let i = 0;
+  while (i < base.length) {
+    if (base[i].k === 'id') {
+      let matched = false;
+      for (const entry of entries) {
+        let j = i;
+        let wIdx = 0;
+        const span: Tok[] = [];
+        while (j < base.length && wIdx < entry.words.length) {
+          if (base[j].k === 'ws') {
+            span.push(base[j]);
+            j++;
+            continue;
+          }
+          if (base[j].k === 'id' && eq(base[j].v, entry.words[wIdx])) {
+            span.push(base[j]);
+            wIdx++;
+            j++;
+          } else {
+            break;
+          }
+        }
+        if (wIdx === entry.words.length) {
+          out.push({ k: 'kw', v: span.map((t) => t.v).join(''), kw: entry.key });
+          i = j;
+          matched = true;
+          break;
+        }
+      }
+      if (matched) continue;
+    }
+    out.push(base[i]);
+    i++;
+  }
+  return out;
 }
