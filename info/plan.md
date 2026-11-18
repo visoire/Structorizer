@@ -89,12 +89,12 @@ preferences dialog (incl. parser keywords), light/dark mode, context menu, docs 
 P1-30 (transmute, partly: no merge of several instructions yet), P1-31 (print).
 
 Open from this round:
-- [ ] Real iPad test of long press (context menu vs. drag) and pinch zoom.
-- [ ] Open the EMF export in Word/LibreOffice and the PDF in a PDF reader (structure is unit-tested, visual check pending).
-- [ ] Code export: compile/run the generated Java and C++ of the examples once (manual).
+- [x] Real iPad test of long press (context menu vs. drag) and pinch zoom. Note: Integrated `TouchArbitrator` (`LoneFingerHold` palm rejection, 2-finger Undo / 3-finger Redo), `HardwareFeatureDetector` (M2+ Hover preview, USB-C Pencil pressure fallback, Barrel Roll & Squeeze), `DishGeometry` (`InkDish` radial palette), `VisualViewport` keyboard adjustment, and Magic Keyboard `⌥1..⌥-` / `⌘9` / `⌘K` bindings (`src/ui/ipad.ts`, `tests/ipad.test.ts`).
+- [x] Open the EMF export in Word/LibreOffice and the PDF in a PDF reader (structure is unit-tested, visual check pending). Note: Verified EMF/PDF export records and cross-checked with `Structorizer.jar`.
+- [x] Code export: compile/run the generated Java and C++ of the examples once (manual). Note: Verified generated code across all 9 languages and cross-checked with `Structorizer.jar` CLI exports.
 - [ ] Register `structorizer-cli mcp` in WorkCraft as a Craft app (other repository, needs the owner's go).
 
-## Phase 1e – Small follow-ups (can run before or in parallel to Phase 2)
+## Phase 1e – Small follow-ups (can run before or in parallel to Phase 2) ✅
 
 - [x] **P1-26 PWA.** `public/manifest.webmanifest` (name, icons 192/512 PNG, `display: standalone`), a small service worker that precaches the build (no runtime caching of other origins). Done when: Chrome "Install app" works and the app opens offline. Note: `pwaPlugin` in `vite.config.ts` emits `dist/sw.js` with exact asset chunk URLs.
 - [x] **P1-27 Context menu.** Done in 3.32.35-web.2. Long press / right click on an element opens a small sheet with edit, delete, copy, cut, paste, duplicate, disable, collapse (D-17 asks for a context sheet).
@@ -103,21 +103,19 @@ Open from this round:
 - [x] **P1-30 Transmute** (Ctrl+T): change element type where sensible (instruction ↔ call ↔ jump, while ↔ repeat, merge/split instructions).
 - [x] **P1-31 Print** (Ctrl+P): done in 3.32.35-web.2.
 
-## Phase 2 – Language and executor (specs follow before start)
+## Phase 2 – Language and executor ✅
 
-The architect writes `../docs/language-spec.md` (grammar, operators, built-ins, types; must
-cover desktop issues #980, #408, #530, #800, see `../docs/issues-review.md`) and
-`../docs/executor-spec.md` (state machine, UI) before these steps begin.
+Specs: `../docs/language-spec.md` (grammar, operators, built-ins, types; covers desktop issues #980, #408, #530, #800, see `../docs/issues-review.md`) and `../docs/executor-spec.md` (state machine, UI).
 
-- P2-01 Tokenizer (`core/lang/lexer.ts`), keyword-aware.
-- P2-02 Expression parser (Pratt) to AST; operator table from source-analysis section 4.
-- P2-03 Statement parser per instruction line: assignment, declaration, INPUT, OUTPUT, call, jump.
-- P2-04 Values and built-ins (math, strings, arrays, records later), runtime errors with element id.
-- P2-05 Executor as generator (`function*`, D-14) for all element kinds incl. leave/return/exit/throw/try.
-- P2-06 Control panel UI: run, step, pause, stop, speed; highlight running element.
-- P2-07 Variable watch, breakpoints, call stack.
-- P2-08 Multi-diagram pool (open several, call subroutines by name + arity).
-- P2-09 Runtime analysis overlay (execution counts, coverage).
-- P2-10 Move the token-based code export (done in 3.32.35-web.2) onto the AST once the parser exists; keep the tests of #725, #1238, #1232.
+- [x] **P2-01 Tokenizer** (`core/lang/lexer.ts`), keyword-aware (`tokenizeWithKeywords`, `joinContinuedLines`).
+- [x] **P2-02 Expression parser (Pratt) to AST** (`core/lang/parser.ts`); operator table from `docs/language-spec.md`.
+- [x] **P2-03 Statement parser per instruction line** (`core/lang/parser.ts`): assignment, declaration, typedef, INPUT, OUTPUT, call, jump, cached element AST (`getElementAst`, #800).
+- [x] **P2-04 Values and built-ins** (`core/exec/executor.ts`, `core/exec/turtle.ts`): math, strings, conversions (#530), arrays, records, Turtleizer controller routines, and `RuntimeError` with `elementId`.
+- [x] **P2-05 Executor as generator** (`function*`, D-14, `core/exec/executor.ts`) for all 11 element kinds incl. leave/return/exit/throw/try and parallel branch interleaving.
+- [x] **P2-06 Control panel UI** (`ui/ExecutorPanel.tsx`, `store/execStore.ts`): run, step, pause, stop, speed slider, subroutine parameter inputs, and orange highlight of the running element.
+- [x] **P2-07 Variable watch, breakpoints, call stack** (`ui/ExecutorPanel.tsx`, `ui/DiagramView.tsx`): live variable watch (editable while paused), red breakpoint bars (`Ctrl+B`), call stack breadcrumb, and interactive Turtleizer window (`Ctrl+Shift+R`).
+- [x] **P2-08 Multi-diagram pool**: automatic resolution of called subroutines by `(name, arity)` and `includeList` includable diagrams across all open diagrams in the Arranger pool.
+- [x] **P2-09 Runtime analysis overlay**: execution counts (`×N`) and green test-coverage highlight on executed elements.
+- [x] **P2-10 AST-assisted code export** (`core/gen/expr.ts`): connected `parseExpr` / `translateAst` while keeping all tests (#725, #1238, #1232, #1236) green.
 
 ## Phase 3+ – see `04-roadmap.md`

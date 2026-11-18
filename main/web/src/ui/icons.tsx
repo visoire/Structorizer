@@ -21,7 +21,7 @@ export function KindIcon({ kind }: { kind: ElementKind }) {
 }
 
 type IconName = 'new' | 'open' | 'save' | 'undo' | 'redo' | 'edit' | 'delete' | 'cut' | 'copy' | 'paste'
-  | 'duplicate' | 'up' | 'down' | 'disable' | 'collapse' | 'zoomIn' | 'zoomOut' | 'zoomFit' | 'image' | 'info' | 'diagram' | 'before' | 'panel';
+  | 'duplicate' | 'up' | 'down' | 'disable' | 'collapse' | 'zoomIn' | 'zoomOut' | 'zoomFit' | 'image' | 'info' | 'diagram' | 'before' | 'panel' | 'play';
 
 export function Icon({ name }: { name: IconName }) {
   switch (name) {
@@ -48,5 +48,6 @@ export function Icon({ name }: { name: IconName }) {
     case 'diagram': return <svg {...S}><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M3 8h18" /></svg>;
     case 'panel': return <svg {...S}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16 M17 8h2 M17 11h2" /></svg>;
     case 'before': return <svg {...S}><path d="M12 20V8 M7 13l5-5 5 5 M5 4h14" /></svg>;
+    case 'play': return <svg {...S}><polygon points="7,5 19,12 7,19" fill="currentColor" stroke="none" /></svg>;
   }
 }

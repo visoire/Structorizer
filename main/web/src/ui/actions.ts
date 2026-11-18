@@ -5,6 +5,7 @@ import { readNsd } from '../core/io';
 import type { LangId } from '../core/gen/generators';
 import { translator } from '../i18n';
 import { useStore } from '../store/diagramStore';
+import { useExecStore } from '../store/execStore';
 import { usePrefs } from '../store/prefsStore';
 import {
   copyPngToClipboard, exportCode, exportEmf, exportPdf, exportPng, exportPngMulti, exportSvg, moveSaveHandle,
@@ -201,6 +202,18 @@ export const actions = {
 
   // ---------------------------------------------------------------- Debug / Help
   planned: () => notify(t()('plannedNote')),
+  executor: () => {
+    const ex = useExecStore.getState();
+    if (!ex.open) ex.setOpen(true);
+    else if (ex.status === 'idle' || ex.status === 'done' || ex.status === 'error') ex.start('run');
+    else ex.setOpen(false);
+  },
+  turtleizer: () => {
+    const ex = useExecStore.getState();
+    ex.setTurtleOpen(!ex.turtleOpen);
+  },
+  breakpoint: () => useExecStore.getState().toggleBreakpoint(),
+  clearBreakpoints: () => useExecStore.getState().clearBreakpoints(),
   docs: (anchor = '') => {
     // the single-file version has no docs folder next to it
     const url = !IS_SINGLE ? `./docs/${anchor}`

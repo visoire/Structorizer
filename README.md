@@ -14,7 +14,7 @@ current browser, including Safari on iPad (desktop issue
   resources. Both builds enforce this with a Content Security Policy (`connect-src 'none'`).
 - **Compatible**: reads and writes the `.nsd` files of Structorizer Desktop 3.32.
 
-Version **3.32-35** (web build `3.32.35-web.6`) · [Changelog](CHANGELOG.md) ·
+Version **3.32-35** (web build `3.32.35-web.7`) · [Changelog](CHANGELOG.md) ·
 [Plan](info/plan.md) · [Roadmap](info/04-roadmap.md)
 
 <p align="center">
@@ -47,10 +47,14 @@ Both are in the [releases](https://github.com/visoire/Structorizer/releases). Ho
 - Preferences: 13 UI languages (English default, plus German, French, Dutch, Luxembourgish, Spanish, Portuguese (Brazil), Italian, Simplified & Traditional Chinese, Czech, Russian, Polish — loaded lazily per chunk), light/dark/system, view options, parser keywords,
   **fonts** for the interface and for diagrams/exports (any installed font), export colours
 - Design in the style of the Craft apps (GridCraft, WordCraft), touch friendly
+- **Executor & Debugger**: step-by-step and continuous execution (`Ctrl+R`) with variable watch (editable while paused), breakpoints (`Ctrl+B`), call stack, multi-diagram subroutine calls, and runtime coverage/execution count overlay
+- **Turtleizer** (`Ctrl+Shift+R`): integrated turtle graphics canvas supporting `forward`, `left`, `right`, `penUp`/`penDown`, `gotoXY`, and SVG export
+- **iPadOS, Apple Pencil & Magic Keyboard**: W3C Pointer Events Level 3 (`pressure`, `twist`, spherical/cartesian tilt), M2+ Apple Pencil hover preview, `TouchArbitrator` palm rejection (`LoneFingerHold`), 2-finger tap Undo / 3-finger tap Redo, OwlLuna-style `InkDish` radial tool palette at the Pencil tip, `VisualViewport` virtual keyboard adaptation, and Magic Keyboard `⌥1..⌥-` / `⌘9` shortcuts
+- **PWA**: installable offline web app with precache service worker (`sw.js`)
 - Documentation page with the Structorizer User Guide (PDF)
 - MCP server for AI assistants (`main/mcp`)
 
-Not yet: Executor, Turtleizer, Analyser, source code import (see the roadmap).
+Not yet: source code import (GOLDParser), `.arr`/`.arrz` multi-diagram surface (see the roadmap).
 
 ## Develop
 

@@ -117,9 +117,8 @@ kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
 ::selection { background: var(--app-soft); }
 
 .app {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   height: 100%;
   height: var(--vv-height, 100dvh);
   overflow: hidden;
@@ -240,7 +239,7 @@ kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
 }
 
 /* ================================================================ work area */
-.workspace { display: flex; min-height: 0; position: relative; background: var(--desk); }
+.workspace { flex: 1 1 auto; display: flex; min-height: 0; position: relative; background: var(--desk); }
 .diagram-scroll {
   flex: 1 1 auto; min-width: 0; overflow: auto; padding: 32px;
   touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch; position: relative;
@@ -255,6 +254,11 @@ kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
 .sel-fill { fill: var(--sel); }
 .sel-outline { fill: none; stroke: var(--sel-line); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .hover-outline { fill: none; stroke: var(--info); stroke-width: 1.5; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; opacity: 0.85; }
+.run-fill { fill: rgba(255, 165, 0, 0.34); }
+.run-outline { fill: none; stroke: #ff8c00; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+.cov-fill { fill: rgba(34, 197, 94, 0.22); }
+.cov-count { fill: #15803d; font-size: 10px; font-weight: 700; font-family: var(--mono); }
+.bp-bar { stroke: #dc2626; stroke-width: 3.5; vector-effect: non-scaling-stroke; }
 .drop line { stroke: var(--sel-line); stroke-width: 3; vector-effect: non-scaling-stroke; stroke-linecap: round; }
 .drop circle { fill: var(--sel-line); }
 
@@ -318,6 +322,74 @@ kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
 .arr-close { width: 26px; height: 26px; margin-right: 3px; border: 0; background: transparent; color: var(--text-dim); font-size: 15px; cursor: default; border-radius: var(--r-widget); opacity: 0; transition: opacity var(--t-fast), background-color var(--t-fast); }
 .arr-group li:hover .arr-close, .arr-group li.on .arr-close, .arr-close:focus-visible { opacity: 1; }
 .arr-close:hover { background: var(--danger); color: #fff; }
+
+/* ================================================================ Executor & Turtleizer */
+.exec-panel {
+  flex: none; display: flex; flex-direction: column; max-height: 36vh;
+  background: var(--panel); border-top: 1px solid var(--border);
+}
+.exec-bar {
+  display: flex; align-items: center; gap: 6px; padding: 6px 12px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border); background: var(--ribbon);
+}
+.exec-title { font-size: 12px; font-weight: 650; }
+.exec-badge {
+  font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+  background: var(--hover); color: var(--text-dim); letter-spacing: 0.04em;
+}
+.exec-badge.running { background: #ffedd5; color: #c2410c; }
+.exec-badge.paused, .exec-badge.waitingInput { background: var(--app-checked); color: var(--app-text); }
+.exec-badge.done { background: #dcfce7; color: #15803d; }
+.exec-badge.error { background: var(--danger-soft); color: var(--danger); }
+.exec-speed { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); margin: 0 4px; }
+.exec-speed input[type="range"] { width: 80px; accent-color: var(--app); }
+.btn.bp-on { border-color: var(--danger); color: var(--danger); }
+.btn.on { background: var(--app-checked); border-color: var(--app-border); }
+.exec-params {
+  display: flex; align-items: center; gap: 10px; padding: 5px 12px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border); font-size: 12px;
+}
+.exec-param { display: inline-flex; align-items: center; gap: 4px; }
+.exec-param input { width: 64px; padding: 2px 6px; font: 12px var(--mono); border: 1px solid var(--input-border); border-radius: 4px; background: var(--input-bg); color: var(--text); }
+.exec-input-bar {
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+  background: var(--app-checked); border-bottom: 1px solid var(--app-border);
+}
+.exec-input-bar input {
+  flex: 1; max-width: 280px; padding: 4px 8px; font: 13px var(--mono);
+  border: 1px solid var(--input-border); border-radius: 4px; background: var(--input-bg); color: var(--text);
+}
+.exec-grid {
+  display: grid; grid-template-columns: minmax(220px, 1fr) minmax(240px, 1.3fr);
+  min-height: 0; flex: 1; overflow: hidden;
+}
+.exec-vars, .exec-console { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.exec-vars { border-right: 1px solid var(--border); }
+.exec-sec-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 4px 10px; font-size: 11px; font-weight: 600; color: var(--group-label);
+  border-bottom: 1px solid var(--border); background: var(--title-bar);
+}
+.exec-table { margin: 0; font-size: 12px; }
+.exec-vars { overflow-y: auto; }
+.exec-empty { padding: 8px 10px; margin: 0; }
+.watch-edit { width: 100%; padding: 2px 5px; font: 12px var(--mono); border: 1px solid var(--app); border-radius: 3px; background: var(--input-bg); color: var(--text); }
+.exec-out-list { flex: 1; overflow-y: auto; padding: 6px 10px; font: 12px/1.5 var(--mono); background: var(--code-bg); }
+.exec-out-line { white-space: pre-wrap; }
+.exec-error { color: var(--danger); font-weight: 600; cursor: pointer; padding: 4px 0; }
+.turtle-float {
+  position: fixed; right: 20px; bottom: 38px; width: min(420px, calc(100vw - 32px)); height: 360px;
+  z-index: 42; display: flex; flex-direction: column;
+  background: var(--menu-bg); border: 1px solid var(--border-strong); border-radius: var(--r-dialog);
+  box-shadow: var(--shadow-dialog); overflow: hidden;
+}
+.turtle-head {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  background: var(--title-bar); border-bottom: 1px solid var(--border);
+}
+.turtle-head strong { flex: 1; font-size: 13px; }
+.turtle-canvas-wrap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.turtle-svg { width: 100%; height: 100%; display: block; }
 
 /* ================================================================ status bar */
 .statusbar {

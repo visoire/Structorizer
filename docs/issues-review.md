@@ -38,12 +38,12 @@ Status values:
 
 | Issue | Topic | Desktop | Web status |
 |---|---|---|---|
-| #800 | Permanent syntax tree in the background | open | **Planned (P2)**: by design, the web parser keeps an AST per element (D-14) |
-| #980 | Declaration semantics to be reassessed | partly (multi-variable declarations) | **Planned (P2)**: `docs/language-spec.md` will define declarations explicitly |
-| #408 | Executor ignores variable types | open | **Planned (P2)**: typed values with optional checking |
-| #259 | Variable registry and data type configurator | partly | **Planned (P2)** |
-| #530 | Conversion from string to int | open | **Planned (P2)**: built-ins like `strToInt`, `strToDouble` in the language spec |
-| #714 | TRY element improvements | partly (empty finally hidden) | **Done (web)** for display; executor semantics planned (P2) |
+| #800 | Permanent syntax tree in the background | open | **Done (web.7)**: `getElementAst()` caches a parsed AST per element (D-14) |
+| #980 | Declaration semantics to be reassessed | partly (multi-variable declarations) | **Done (web.7)**: `docs/language-spec.md` and `parseStmt()` handle Pascal, C, and BASIC declarations |
+| #408 | Executor ignores variable types | open | **Done (web.7)**: `coerceToType()` and `StackFrame.types` enforce declared variable types |
+| #259 | Variable registry and data type configurator | partly | **Done (web.7)**: live editable variable watch table with types and `typedef` records |
+| #530 | Conversion from string to int | open | **Done (web.7)**: `strToInt`, `strToDouble`, `strToBool`, `intToStr`, `doubleToStr` built-ins |
+| #714 | TRY element improvements | partly (empty finally hidden) | **Done (web.7)**: display and full `try`/`catch`/`finally` executor semantics |
 | #916 | C operator mode consistently in the editor | open | **Planned (P2)**: display option for operators (Unicode / C style) |
 | #1000 | "Karel the Robot" controller | open | **Planned (P3)** together with Turtleizer as optional controller |
 

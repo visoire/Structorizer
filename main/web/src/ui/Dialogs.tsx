@@ -326,6 +326,7 @@ export function ContextMenu() {
         {item(t('outsource'), actions.outsource, !el)}
         {item(el?.collapsed ? t('expand') : t('collapse'), actions.toggleCollapse, !el)}
         {item(t('disable'), actions.disable, !el)}
+        {item(t('breakpoint'), actions.breakpoint, !el)}
       </div>
     </div>
   );

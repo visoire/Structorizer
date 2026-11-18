@@ -4,12 +4,14 @@ import { findById, STRUCTURED_KINDS, type ElementKind } from '../core/model';
 import { parseSignature } from '../core/lang/analyze';
 import { htmlLang, useTranslator, type TKey } from '../i18n';
 import { anyDirty, isDirty, useStore } from '../store/diagramStore';
+import { useExecStore } from '../store/execStore';
 import { resolvedTheme, usePrefs } from '../store/prefsStore';
 import appIcon from '../assets/app-icon.png';
 import { actions } from './actions';
 import { ContextMenu, Dialogs } from './Dialogs';
 import { DiagramView } from './DiagramView';
 import { DiagramEditor, ElementEditor } from './ElementEditor';
+import { ExecutorPanel } from './ExecutorPanel';
 import { clearPrintArea, loadSession, preparePrintArea, saveSession } from './exporters';
 import { Icon, KindIcon } from './icons';
 import { applyUiFont } from './fonts';
@@ -41,6 +43,7 @@ function ToolButton({ label, onClick, disabled, children, pressed }: {
 
 export function App() {
   const s = useStore();
+  const exOpen = useExecStore((x) => x.open);
   const p = usePrefs();
   const t = useTranslator(p.lang);
   const dirty = isDirty(s);
@@ -137,7 +140,9 @@ export function App() {
       else if (ctrl && lower === 'k') st.openQuickDish(st.quickDish ? null : { x: window.innerWidth / 2, y: window.innerHeight / 2 });
       else if (ctrl && e.shiftKey && lower === 'x') actions.exportCode();
       else if (ctrl && k === 'F11') actions.outsource();
-      else if (ctrl && lower === 'r') actions.planned();
+      else if (ctrl && e.shiftKey && lower === 'r') actions.turtleizer();
+      else if (ctrl && lower === 'r') actions.executor();
+      else if (ctrl && lower === 'b') actions.breakpoint();
       else if (ctrl && k === '7') actions.disable();
       else if (ctrl && (k === '+' || k === '=')) actions.zoomIn();
       else if (ctrl && k === '-') actions.zoomOut();
@@ -191,6 +196,7 @@ export function App() {
             <span className="doc-name">{s.fileName ?? title}</span>{dirty && <span className="dot" aria-label={t('unsaved')}> •</span>}
           </div>
           <div className="top-quick">
+            <ToolButton label={t('executor')} pressed={exOpen} onClick={actions.executor}><Icon name="play" /></ToolButton>
             <ToolButton label={t('undo')} disabled={s.past.length === 0} onClick={actions.undo}><Icon name="undo" /></ToolButton>
             <ToolButton label={t('redo')} disabled={s.future.length === 0} onClick={actions.redo}><Icon name="redo" /></ToolButton>
             <ToolButton label={t('save')} onClick={() => void actions.save(false)}><Icon name="save" /></ToolButton>
@@ -233,6 +239,8 @@ export function App() {
           <DiagramView />
           <SidePanel />
         </main>
+
+        <ExecutorPanel />
 
         <footer className="statusbar">
           <span className="status-left">

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Token based translation of Structorizer expressions into target languages.
+// AST and token-assisted translation of Structorizer expressions into target languages (P2-10).
 import { tokenize, type Tok } from '../lang/lexer';
+import { parseExpr, type Expr } from '../lang/parser';
 
 export type LangId = 'python' | 'java' | 'javascript' | 'c' | 'cpp' | 'csharp' | 'pascal' | 'php' | 'bash';
 
@@ -188,24 +189,77 @@ function guessArrayType(toks: Tok[], lang: 'java' | 'csharp' = 'java'): string {
   return lang === 'csharp' ? 'object' : 'Object';
 }
 
+/** Translate a parsed AST expression node into `ctx.lang` (P2-10). */
+export function translateAst(node: Expr, ctx: ExprCtx): string {
+  const L = ctx.lang;
+  switch (node.t) {
+    case 'num': return node.raw;
+    case 'bool': return L === 'python' ? (node.v ? 'True' : 'False') : L === 'bash' ? (node.v ? '1' : '0') : String(node.v);
+    case 'null': return L === 'python' ? 'None' : L === 'pascal' ? 'nil' : 'null';
+    case 'str': return translateToks([{ k: 'str', v: node.raw }], ctx);
+    case 'id': return translateToks([{ k: 'id', v: node.name }], ctx);
+    case 'unary': {
+      const arg = translateAst(node.arg, ctx);
+      const wrap = node.arg.t === 'binary' ? `(${arg})` : arg;
+      if (node.op === 'not' || node.op === '!') {
+        return L === 'python' || L === 'pascal' ? `not ${wrap}` : `!${wrap}`;
+      }
+      return `${node.op}${wrap}`;
+    }
+    case 'binary': {
+      const l = translateAst(node.left, ctx);
+      const r = translateAst(node.right, ctx);
+      const op = translateToks([{ k: WORD_OP_SET.has(node.op) ? 'id' : 'op', v: node.op }], ctx).trim();
+      return `${l} ${op} ${r}`;
+    }
+    case 'call': {
+      const args = node.args.map((a) => translateAst(a, ctx));
+      const low = node.name.toLowerCase();
+      const b = BUILTINS[low];
+      if (b) {
+        const imp = IMPORTS[L]?.[low];
+        if (imp) ctx.imports.add(imp);
+        return b[L](args);
+      }
+      return `${node.name}(${args.join(', ')})`;
+    }
+    case 'index': return `${translateAst(node.target, ctx)}[${translateAst(node.index, ctx)}]`;
+    case 'member': return `${translateAst(node.target, ctx)}.${node.field}`;
+    case 'array': {
+      const items = node.items.map((a) => translateAst(a, ctx));
+      if (L === 'java' || L === 'csharp') return `new ${ctx.arrayType ?? 'int'}[]{${items.join(', ')}}`;
+      if (L === 'cpp' || L === 'c') return `{${items.join(', ')}}`;
+      if (L === 'pascal') return `(${items.join(', ')})`;
+      if (L === 'bash') return `(${items.join(' ')})`;
+      return `[${items.join(', ')}]`;
+    }
+    case 'record': {
+      const entries = node.fields.map((f) => `${JSON.stringify(f.name)}: ${translateAst(f.value, ctx)}`);
+      return `{${entries.join(', ')}}`;
+    }
+  }
+}
+
+const WORD_OP_SET = new Set(['and', 'or', 'not', 'xor', 'div', 'mod', 'shl', 'shr']);
+
 /** Translate one expression of the Structorizer language into `ctx.lang`. */
 export function translateExpr(expr: string, ctx: ExprCtx): string {
   return translateToks(tokenize(expr), ctx).trim();
 }
 
-/** Literal type of an expression (for declarations in typed languages). */
+/** Literal type of an expression inspected via the AST (for declarations in typed languages, P2-10). */
 export function literalType(expr: string): 'int' | 'double' | 'string' | 'bool' | 'char' | 'array' | null {
-  const toks = tokenize(expr.trim()).filter((t) => t.k !== 'ws');
-  if (toks.length === 0) return null;
-  const sign = toks[0].v === '-' || toks[0].v === '+';
-  const t = toks[sign ? 1 : 0];
-  if (!t) return null;
-  if (toks[0].v === '{') return 'array';
-  if (toks.length === (sign ? 2 : 1)) {
-    if (t.k === 'num') return /[.eE]/.test(t.v) && !/^0[xX]/.test(t.v) ? 'double' : 'int';
-    if (t.k === 'str') return t.v.startsWith("'") && (t.v.length === 3 || (t.v.length === 4 && t.v[1] === '\\')) ? 'char' : 'string';
-    if (/^(true|false)$/i.test(t.v)) return 'bool';
+  const trimmed = expr.trim();
+  if (!trimmed) return null;
+  const ast = parseExpr(trimmed);
+  if (ast.t === 'array') return 'array';
+  if (ast.t === 'num') return ast.isInt ? 'int' : 'double';
+  if (ast.t === 'str') return ast.isChar ? 'char' : 'string';
+  if (ast.t === 'bool') return 'bool';
+  if (ast.t === 'unary' && (ast.op === '-' || ast.op === '+') && ast.arg.t === 'num') {
+    return ast.arg.isInt ? 'int' : 'double';
   }
+  const toks = tokenize(trimmed).filter((t) => t.k !== 'ws');
   if (toks.some((x) => x.k === 'str')) return 'string';
   if (toks.some((x) => x.k === 'num' && /[.eE]/.test(x.v)) || toks.some((x) => x.v === '/')) return 'double';
   if (toks.every((x) => x.k === 'num' || x.k === 'op' || x.v === '(' || x.v === ')' || /^(div|mod)$/i.test(x.v))) return 'int';

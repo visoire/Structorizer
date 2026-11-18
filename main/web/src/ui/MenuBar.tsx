@@ -6,6 +6,7 @@ import { LANGUAGES } from '../core/gen/generators';
 import { EXAMPLES } from '../examples';
 import { LANGS, useTranslator, type TKey } from '../i18n';
 import { useStore } from '../store/diagramStore';
+import { useExecStore } from '../store/execStore';
 import { usePrefs } from '../store/prefsStore';
 import { actions } from './actions';
 import { getRecent } from './exporters';
@@ -35,6 +36,7 @@ export const INSERT_KEYS: [ElementKind, string, string][] = [
 
 export function useMenus(): Menu[] {
   const s = useStore();
+  const ex = useExecStore();
   const p = usePrefs();
   const t = useTranslator(p.lang);
   const sel = s.selection;
@@ -181,9 +183,9 @@ export function useMenus(): Menu[] {
     {
       label: t('m.debug'),
       items: [
-        { label: `${t('executor')} (${t('planned')})`, shortcut: 'Ctrl+R', action: actions.planned },
-        { label: `${t('turtleizer')} (${t('planned')})`, shortcut: 'Ctrl+Shift+R', action: actions.planned },
-        { label: `${t('breakpoint')} (${t('planned')})`, action: actions.planned, disabled: true },
+        { label: t('executor'), shortcut: 'Ctrl+R', checked: ex.open, action: actions.executor },
+        { label: t('turtleizer'), shortcut: 'Ctrl+Shift+R', checked: ex.turtleOpen, action: actions.turtleizer },
+        { label: t('breakpoint'), shortcut: 'Ctrl+B', checked: !!(el && ex.breakpoints.has(el.id)), action: actions.breakpoint, disabled: !el },
         { label: t('disable'), shortcut: 'Ctrl+7', action: actions.disable, disabled: !el },
       ],
     },

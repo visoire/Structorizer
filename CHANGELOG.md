@@ -10,6 +10,32 @@ build number. Desktop issue numbers refer to
 
 ## [Unreleased]
 
+## [3.32.35-web.7] – 2026-11-18 (corresponds to Structorizer 3.32-35)
+
+Completed Phase 1e and Phase 2 of `info/plan.md`: full Executor & Debugger, Turtleizer, Pratt AST parser, multi-selection, branch head colouring, PWA offline service worker, and comprehensive iPadOS / Apple Pencil / Magic Keyboard integration.
+
+### Added
+- **Phase 2 Language & AST Parser (`src/core/lang/lexer.ts`, `parser.ts`, `docs/language-spec.md`)**:
+  - Keyword-aware tokenizer (`tokenizeWithKeywords`) supporting multi-word per-diagram keywords and line-continuation backslashes (`joinContinuedLines`).
+  - Pratt expression parser (`parseExpr`) and statement parser (`parseStmt`) with permanent cached element ASTs (`getElementAst`, desktop issue #800), record/array literals, and Pascal/C/BASIC declarations (#980).
+- **Phase 2 Executor & Debugger (`src/core/exec/executor.ts`, `src/store/execStore.ts`, `src/ui/ExecutorPanel.tsx`, `docs/executor-spec.md`)**:
+  - Pure generator-based interpreter (`function*`, no `eval` / `new Function`, D-14) covering all 11 element types, `leave` / `return` / `exit` / `throw`, `Try`/`Catch`/`Finally`, and `Parallel` branch interleaving.
+  - Built-in math, string, array, record, and conversion functions (`strToInt`, `strToDouble`, `strToBool`, `pos`, `copy`, `inc`, `dec`, desktop issues #408, #530).
+  - Multi-diagram subroutine call resolution by `(name, arity)` and `includeList` includables across all open diagrams in the Arranger pool (P2-08).
+  - Interactive debugger control panel (`Ctrl+R`): Run/Resume, Step, Pause, Stop, speed slider (`0–800 ms`), subroutine parameter bar, live editable variable watch table, call stack, `INPUT` prompt, `OUTPUT` console, breakpoints (`Ctrl+B`, red top bar), and runtime coverage / execution count (`×N`) overlay (P2-06, P2-07, P2-09).
+- **Turtleizer (`src/core/exec/turtle.ts`, `src/ui/ExecutorPanel.tsx`)**:
+  - Integrated turtle graphics controller (`Ctrl+Shift+R`) supporting `forward`/`fd`, `backward`/`bk`, `left`/`rl`, `right`/`rr`, `penUp`/`penDown`, `gotoXY`/`gotoX`/`gotoY`, `setPenColor`, `setBackgroundColor`, `clear`, `getX`/`getY`/`getOrientation`, and standalone SVG export.
+- **iPadOS, Apple Pencil & Magic Keyboard (`src/ui/ipad.ts`, `src/ui/DiagramView.tsx`, `src/ui/App.tsx`)**:
+  - `HardwareFeatureDetector` & W3C Pointer Events Level 3 `TiltMathConverter` (spherical `altitudeAngle`/`azimuthAngle` ⇄ cartesian `tiltX`/`tiltY`, 240 Hz `getCoalescedEvents()`, Apple Pencil USB-C simulated-pressure fallback, Barrel Roll `twist`, and Squeeze detection).
+  - `TouchArbitrator` (ported from OwlLuna's `StrokeHold.swift` & `PencilGestures.swift`): `LoneFingerHold` palm rejection while the Apple Pencil is active or within 500 ms of lifting, plus 2-finger tap Undo and 3-finger tap Redo on the diagram canvas.
+  - OwlLuna-inspired `InkDish` radial tool palette (`QuickDish`, `⌘K`, Apple Pencil squeeze, or Pencil double-tap on empty desk) with all 11 element types arranged around the rim and `Undo`/`Redo`/`Edit`/`Delete` in the center grid.
+  - Apple Pencil Hover preview on M2+ iPad Pro/Air (`pointerType === 'pen'` with `buttons === 0`), `window.visualViewport` virtual keyboard height adaptation, and Magic Keyboard `⌥1..⌥-` element insertion & `⌘9` Fit to Window shortcuts.
+- **Phase 1e Editor Completions**:
+  - **P1-26 PWA**: `pwaPlugin` in `vite.config.ts` emits `dist/sw.js` precaching the exact build assets for full offline operation.
+  - **P1-28 Multi-selection**: `Shift+↑/↓` and `Shift+Click/Tap` select a contiguous range of elements in a sequence; delete, cut, copy, paste, duplicate, move up/down, drag-and-drop, disable, outsource, and transmute work on the range.
+  - **P1-29 Branch head colours**: tap any branch header triangle/trapezoid of an `IF` or `CASE` element to colour it via a floating swatch bar (compatible with Structorizer Desktop 3.32-30 `branch_colors`).
+  - **P1-30 Transmute merge/split**: `Ctrl+T` on multiple selected instructions merges them into a single multi-line instruction; `Ctrl+T` on a multi-line instruction splits it into a selected range of single-line instructions.
+
 ## [3.32.35-web.6] – 2026-11-18 (corresponds to Structorizer 3.32-35)
 
 ### Changed

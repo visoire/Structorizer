@@ -6,6 +6,7 @@ import { DEFAULT_COLORS, findById, type ElementKind } from '../core/model';
 import { isInside, sameRef } from '../core/model/tree';
 import { sceneToSvg } from '../core/render/svg';
 import { selectedIds, useStore, type Selection } from '../store/diagramStore';
+import { useExecStore } from '../store/execStore';
 import { useTranslator, type TKey } from '../i18n';
 import { resolvedTheme, usePrefs } from '../store/prefsStore';
 import { actions } from './actions';
@@ -75,6 +76,12 @@ export function DiagramView() {
   const [gap, setGap] = useState<Gap | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const quickDish = useStore((s) => s.quickDish);
+  const runningElementId = useExecStore((s) => s.runningElementId);
+  const breakpoints = useExecStore((s) => s.breakpoints);
+  const coverageOverlay = useExecStore((s) => s.coverageOverlay);
+  const execState = useExecStore((s) => s.execState);
+  // Subscribe to tick so coverage counts update live during execution
+  useExecStore((s) => s.tick);
 
   const toScene = (clientX: number, clientY: number) => {
     const r = hostRef.current!.getBoundingClientRect();
@@ -286,8 +293,31 @@ export function DiagramView() {
     return scene.hits.find((h): h is Extract<Hit, { t: 'el' }> => h.t === 'el' && h.id === hoverId) ?? null;
   }, [scene, hoverId, selIds]);
 
+  const runHit = useMemo(() => {
+    if (!runningElementId) return null;
+    return scene.hits.find((h): h is Extract<Hit, { t: 'el' }> => h.t === 'el' && h.id === runningElementId) ?? null;
+  }, [scene, runningElementId]);
+
+  const elHitsAll = useMemo(
+    () => scene.hits.filter((h): h is Extract<Hit, { t: 'el' }> => h.t === 'el'),
+    [scene],
+  );
+
   const overlay = (
     <svg className="overlay" width={scene.width * zoom} height={scene.height * zoom} viewBox={`0 0 ${scene.width} ${scene.height}`} aria-hidden="true">
+      {coverageOverlay && elHitsAll.map((h) => {
+        const count = execState.execCounts.get(h.id) ?? 0;
+        const cov = execState.covered.has(h.id);
+        if (!cov && count === 0) return null;
+        return (
+          <g key={'cov-' + h.id}>
+            <rect x={h.head.x + 1} y={h.head.y + 1} width={Math.max(0, h.head.w - 1)} height={Math.max(0, h.head.h - 1)} className="cov-fill" />
+            {count > 0 && (
+              <text x={h.x + h.w - 4} y={h.y + 12} textAnchor="end" className="cov-count">{count}×</text>
+            )}
+          </g>
+        );
+      })}
       {hoverHit && (
         <rect x={hoverHit.x + 1} y={hoverHit.y + 1} width={Math.max(0, hoverHit.w - 1)} height={Math.max(0, hoverHit.h - 1)} className="hover-outline" />
       )}
@@ -298,6 +328,17 @@ export function DiagramView() {
           )}
           <rect x={h.x + 1} y={h.y + 1} width={Math.max(0, h.w - 1)} height={Math.max(0, h.h - 1)} className="sel-outline" />
         </g>
+      ))}
+      {runHit && (
+        <g>
+          <rect x={runHit.head.x + 1} y={runHit.head.y + 1} width={Math.max(0, runHit.head.w - 1)} height={Math.max(0, runHit.head.h - 1)} className="run-fill" />
+          <rect x={runHit.x + 1} y={runHit.y + 1} width={Math.max(0, runHit.w - 1)} height={Math.max(0, runHit.h - 1)} className="run-outline" />
+        </g>
+      )}
+      {elHitsAll.map((h) => (
+        breakpoints.has(h.id) ? (
+          <line key={'bp-' + h.id} x1={h.x + 1} y1={h.y + 2} x2={h.x + h.w - 1} y2={h.y + 2} className="bp-bar" />
+        ) : null
       ))}
       {activeBranchPoly && (
         <polygon points={activeBranchPoly.map(([x, y]) => `${x},${y}`).join(' ')} className="sel-fill sel-outline" />

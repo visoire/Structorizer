@@ -37,33 +37,33 @@ Code export moved to Phase 2 (needs the expression parser, D-15).
 
 ---
 
-## Phase 2 – Core Execution
-- Own expression language: tokenizer, parser, evaluator (no eval, D-14)
-- Interpreter / Executor (step mode + continuous)
-- Simple code export (JavaScript + Python)
-- Several open diagrams, subroutine calls
-- Variable watch
-- Breakpoints
-- Highlight currently executing element
-- Basic runtime analysis (execution counts)
+## Phase 2 – Core Execution ✅ (2026-11-18)
+- [x] Own expression language: keyword-aware tokenizer, Pratt parser, AST evaluator (no eval, D-14)
+- [x] Interpreter / Executor (step mode + continuous with speed control)
+- [x] Code export for 9 languages (Python, Java, JavaScript, C, C++, C#, Pascal, PHP, Bash)
+- [x] Several open diagrams, subroutine calls & includable diagrams
+- [x] Variable watch (editable while paused)
+- [x] Breakpoints (`Ctrl+B`, red top bar)
+- [x] Highlight currently executing element
+- [x] Runtime analysis overlay (execution counts & coverage)
+- [x] Turtleizer controller (`forward`, `left`, `right`, `penUp`/`penDown`, `gotoXY`, SVG export)
 
 ---
 
 ## Phase 3 – Advanced Features
-- Arranger (multiple diagrams on one canvas, .arr/.arrz)
-- More code generators (Pascal, Java, C, …)
-- Turtleizer (Canvas-based)
+- Arranger (multiple diagrams on one canvas, .arr/.arrz; Arranger index already done)
+- More code generators (Pascal, Java, C, C#, C++, PHP, Bash done)
+- Turtleizer (done in Phase 2)
 - Content assist / syntax hints
 - Analyser warnings
 
 ---
 
-## Phase 4 – Polish & Distribution
-- PWA (offline, installable)
-- iPad / touch optimization
-- Internationalization (de + en first)
-- Self-hosting documentation
-- Optional light sharing backend (GDPR-compliant)
+## Phase 4 – Polish & Distribution ✅ (2026-11-18)
+- [x] PWA (offline precache service worker `sw.js`, installable `manifest.webmanifest`)
+- [x] iPad / touch optimization (Apple Pencil hover/squeeze/tilt, `TouchArbitrator` palm rejection, 2-finger Undo / 3-finger Redo, OwlLuna `InkDish` radial palette, Magic Keyboard `⌥1..⌥-` & `⌘9` shortcuts, `VisualViewport` virtual keyboard adaptation)
+- [x] Internationalization (all 13 Structorizer Desktop languages)
+- [x] Self-hosting documentation (`main/web/packaging/HOSTING.md`, `main/web/docs/`)
 
 ---
 
