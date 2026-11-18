@@ -14,7 +14,7 @@ current browser, including Safari on iPad (desktop issue
   resources. Both builds enforce this with a Content Security Policy (`connect-src 'none'`).
 - **Compatible**: reads and writes the `.nsd` files of Structorizer Desktop 3.32.
 
-Version **3.32-35** (web build `3.32.35-web.7`) · [Changelog](CHANGELOG.md) ·
+Version **3.32-35** (web build `3.32.35-web.8`) · **[Live Web App (GitHub Pages)](https://visoire.github.io/Structorizer/)** · **[Single-File Edition](https://visoire.github.io/Structorizer/structorizer-single.html)** · [Changelog](CHANGELOG.md) ·
 [Plan](info/plan.md) · [Roadmap](info/04-roadmap.md)
 
 <p align="center">
@@ -47,14 +47,14 @@ Both are in the [releases](https://github.com/visoire/Structorizer/releases). Ho
 - Preferences: 13 UI languages (English default, plus German, French, Dutch, Luxembourgish, Spanish, Portuguese (Brazil), Italian, Simplified & Traditional Chinese, Czech, Russian, Polish — loaded lazily per chunk), light/dark/system, view options, parser keywords,
   **fonts** for the interface and for diagrams/exports (any installed font), export colours
 - Design in the style of the Craft apps (GridCraft, WordCraft), touch friendly
-- **Executor & Debugger**: step-by-step and continuous execution (`Ctrl+R`) with variable watch (editable while paused), breakpoints (`Ctrl+B`), call stack, multi-diagram subroutine calls, and runtime coverage/execution count overlay
-- **Turtleizer** (`Ctrl+Shift+R`): integrated turtle graphics canvas supporting `forward`, `left`, `right`, `penUp`/`penDown`, `gotoXY`, and SVG export
-- **iPadOS, Apple Pencil & Magic Keyboard**: W3C Pointer Events Level 3 (`pressure`, `twist`, spherical/cartesian tilt), M2+ Apple Pencil hover preview, `TouchArbitrator` palm rejection (`LoneFingerHold`), 2-finger tap Undo / 3-finger tap Redo, OwlLuna-style `InkDish` radial tool palette at the Pencil tip, `VisualViewport` virtual keyboard adaptation, and Magic Keyboard `⌥1..⌥-` / `⌘9` shortcuts
+- **Executor & Debugger**: resizable and dockable (`Bottom`, `Top`, `Left`, `Right`) step-by-step and continuous execution (`Ctrl+R`) with variable watch (editable while paused), breakpoints (`Ctrl+B`), call stack, multi-diagram subroutine calls, and runtime coverage/execution count overlay
+- **Turtleizer Studio** (`Ctrl+Shift+R`): draggable, resizable, or dockable turtle graphics studio supporting `forward`, `backward`, `left`, `right`, `penUp`/`penDown`, `gotoXY`, `setPenColor`, `setPenWidth`, `circle`/`arc`, `home`, `writeTurtle`, pan/zoom, coordinate grid, and SVG/PNG export (plus Python/Java/C# code export `#1237`)
+- **Static Analyser & Content Assist**: `A01`–`A09` static diagram checks (`F3`) with canvas warning triangles, interactive Side Panel findings list, and live autocomplete chips (`Tab` completion) inside the Element Editor
+- **2D Arranger Surface & `.arr`/`.arrz` Archives**: free-form 2D Arranger board (`Ctrl+Shift+A`) with draggable/pinnable diagram cards and pure-TypeScript `.arrz` / `.arr` import and export
+- **iPadOS, Apple Pencil & Magic Keyboard**: W3C Pointer Events Level 3 (`pressure`, `twist`, spherical/cartesian tilt), M2+ Apple Pencil hover preview, `TouchArbitrator` palm rejection (`LoneFingerHold`), 2-finger tap Undo / 3-finger tap Redo, OwlLuna-style `InkDish` radial tool palette at the Pencil tip, `VisualViewport` virtual keyboard adaptation, Magic Keyboard `⌥1..⌥-` / `⌘9` shortcuts, and Capacitor native wrapper config ([docs/ipados-native-guide.md](docs/ipados-native-guide.md))
 - **PWA**: installable offline web app with precache service worker (`sw.js`)
 - Documentation page with the Structorizer User Guide (PDF)
-- MCP server for AI assistants (`main/mcp`)
-
-Not yet: source code import (GOLDParser), `.arr`/`.arrz` multi-diagram surface (see the roadmap).
+- MCP server for AI assistants (`main/mcp`, `21` tools over `stdio` and Streamable HTTP `--http <port>`)
 
 ## Develop
 
@@ -94,10 +94,10 @@ node dist/cli.js mcp --root /path/to/diagrams
 claude mcp add structorizer -- node /path/to/main/mcp/dist/cli.js mcp --root /path/to/diagrams
 ```
 
-Tools (`17` tools, all annotated, plus MCP resources & prompts): `list-commands`, `list-diagrams`,
-`read-diagram`, `diagram-info`, `validate-diagram`, `find-in-diagrams`, `replace-in-diagram`,
-`create-diagram`, `update-diagram`, `add-element`, `update-element`, `delete-element`,
-`move-element`, `transmute-element`, `batch`, `export-code`, `export-picture`.
+Tools (`21` tools, all annotated, plus MCP resources & prompts): `list-commands`, `list-diagrams`,
+`read-diagram`, `diagram-info`, `validate-diagram`, `analyse-diagram`, `execute-diagram`, `find-in-diagrams`,
+`replace-in-diagram`, `create-diagram`, `update-diagram`, `add-element`, `update-element`, `delete-element`,
+`move-element`, `transmute-element`, `batch`, `export-code`, `export-picture`, `pack-arrz`, `unpack-arrz`.
 
 ### Project layout
 
