@@ -53,6 +53,7 @@ interface State {
   docs: DocSlot[];
   dialog: DialogName;
   contextMenu: { x: number; y: number } | null;
+  quickDish: { x: number; y: number } | null;
   /** Incremented to ask the view to fit the diagram into the window. */
   fitTick: number;
   /** Touch helper: next insert goes before the selection (desktop: Shift + button). */
@@ -97,6 +98,7 @@ interface State {
   outsource: () => boolean;
   setDialog: (d: DialogName) => void;
   openContextMenu: (pos: { x: number; y: number } | null) => void;
+  openQuickDish: (pos: { x: number; y: number } | null) => void;
   requestFit: () => void;
   setInsertBefore: (b: boolean) => void;
   notify: (text: string, kind?: 'info' | 'success' | 'error') => void;
@@ -130,6 +132,7 @@ export const useStore = create<State>((set, get) => ({
   docs: [],
   dialog: null,
   contextMenu: null,
+  quickDish: null,
   fitTick: 0,
   insertBefore: false,
   message: null,
@@ -516,8 +519,9 @@ export const useStore = create<State>((set, get) => ({
     return true;
   },
 
-  setDialog: (dialog) => set({ dialog, contextMenu: null }),
-  openContextMenu: (contextMenu) => set({ contextMenu }),
+  setDialog: (dialog) => set({ dialog, contextMenu: null, quickDish: null }),
+  openContextMenu: (contextMenu) => set({ contextMenu, quickDish: null }),
+  openQuickDish: (quickDish) => set({ quickDish, contextMenu: null }),
 
   setZoom: (z) => set({ zoom: Math.min(3, Math.max(0.3, Math.round(z * 100) / 100)) }),
 

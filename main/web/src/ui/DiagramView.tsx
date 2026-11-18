@@ -2,16 +2,21 @@
 // Interactive diagram: tap selects, double tap edits, drag (mouse) or long press (touch) moves, pinch zooms.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createLayoutEngine, hitBranchHead, hitTest, nearestGap, type Gap, type Hit, type Scene } from '../core/layout';
-import { DEFAULT_COLORS, findById } from '../core/model';
+import { DEFAULT_COLORS, findById, type ElementKind } from '../core/model';
 import { isInside, sameRef } from '../core/model/tree';
 import { sceneToSvg } from '../core/render/svg';
 import { selectedIds, useStore, type Selection } from '../store/diagramStore';
-import { useTranslator } from '../i18n';
+import { useTranslator, type TKey } from '../i18n';
 import { resolvedTheme, usePrefs } from '../store/prefsStore';
+import { actions } from './actions';
 import { measure, viewLayoutOptions } from './exporters';
+import { Icon, KindIcon } from './icons';
+import { DishGeometry, getCoalescedPoints, HardwareFeatureDetector, TouchArbitrator } from './ipad';
 
 const LONG_PRESS_MS = 450;
+const PEN_HOLD_MS = 220;
 const DRAG_THRESHOLD = 6;
+const DISH_KINDS: ElementKind[] = ['instruction', 'alternative', 'case', 'for', 'while', 'repeat', 'forever', 'call', 'jump', 'parallel', 'try'];
 
 interface PressState {
   pointerId: number;
@@ -65,8 +70,11 @@ export function DiagramView() {
   const lastTap = useRef<{ time: number; sel: Selection }>({ time: 0, sel: null });
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ dist: number; zoom: number } | null>(null);
+  const arbitrator = useRef(new TouchArbitrator());
   const [dragId, setDragId] = useState<string | null>(null);
   const [gap, setGap] = useState<Gap | null>(null);
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const quickDish = useStore((s) => s.quickDish);
 
   const toScene = (clientX: number, clientY: number) => {
     const r = hostRef.current!.getBoundingClientRect();
@@ -97,6 +105,17 @@ export function DiagramView() {
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
+    const arb = arbitrator.current.onPointerDown(e.nativeEvent);
+    if (arb.reject) {
+      e.preventDefault();
+      return;
+    }
+    setHoverId(null);
+    const hw = HardwareFeatureDetector.inspectPointerEvent(e.nativeEvent);
+    if (hw.isSqueeze) {
+      useStore.getState().openQuickDish({ x: e.clientX, y: e.clientY });
+      return;
+    }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 2) {
       // pinch zoom start: cancel any press
@@ -106,17 +125,32 @@ export function DiagramView() {
       pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom };
       return;
     }
+    if (pointers.current.size > 2) {
+      if (press.current?.timer) clearTimeout(press.current.timer);
+      press.current = null;
+      pinch.current = null;
+      return;
+    }
     if (e.button !== 0 && e.pointerType === 'mouse') return;
     const pt = toScene(e.clientX, e.clientY);
     const hit = hitTest(scene, pt.x, pt.y);
     const p: PressState = { pointerId: e.pointerId, type: e.pointerType, x: e.clientX, y: e.clientY, hit, dragging: false, timer: null, cancelled: false };
     if (e.pointerType !== 'mouse' && hit?.t === 'el') {
-      p.timer = window.setTimeout(() => { if (press.current === p && !p.cancelled) startDrag(p); }, LONG_PRESS_MS);
+      const holdMs = e.pointerType === 'pen' ? PEN_HOLD_MS : LONG_PRESS_MS;
+      p.timer = window.setTimeout(() => { if (press.current === p && !p.cancelled) startDrag(p); }, holdMs);
     }
     press.current = p;
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
+    arbitrator.current.onPointerMove(e.nativeEvent);
+    // Apple Pencil Hover (M2+ iPad Pro / Air): highlight target element before touching glass
+    if (e.pointerType === 'pen' && e.buttons === 0 && !press.current) {
+      const pt = toScene(e.clientX, e.clientY);
+      const h = hitTest(scene, pt.x, pt.y);
+      setHoverId(h?.t === 'el' ? h.id : null);
+      return;
+    }
     if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pinch.current && pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()];
@@ -126,12 +160,16 @@ export function DiagramView() {
     }
     const p = press.current;
     if (!p || p.pointerId !== e.pointerId) return;
-    const moved = Math.hypot(e.clientX - p.x, e.clientY - p.y);
+    const pts = getCoalescedPoints(e.nativeEvent);
+    const lastPt = pts[pts.length - 1];
+    const moved = Math.hypot(lastPt.x - p.x, lastPt.y - p.y);
     if (!p.dragging) {
-      if (p.type === 'mouse' && moved > DRAG_THRESHOLD && p.hit?.t === 'el') {
+      if ((p.type === 'mouse' || p.type === 'pen') && moved > DRAG_THRESHOLD && p.hit?.t === 'el') {
+        if (p.timer) clearTimeout(p.timer);
         startDrag(p);
-        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-      } else if (p.type !== 'mouse' && moved > 10) {
+        p.movedInDrag = true;
+        try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* ignore */ }
+      } else if (p.type === 'touch' && moved > 10) {
         p.cancelled = true; // it is a scroll
         if (p.timer) clearTimeout(p.timer);
       }
@@ -139,13 +177,30 @@ export function DiagramView() {
     }
     if (moved > 8) p.movedInDrag = true;
     if (!p.movedInDrag) return;
-    const pt = toScene(e.clientX, e.clientY);
+    const pt = toScene(lastPt.x, lastPt.y);
     setGap(validGap(nearestGap(scene, pt.x, pt.y), (p.hit as Extract<Hit, { t: 'el' }>).id));
   };
 
   const finish = (e: React.PointerEvent, cancelled: boolean) => {
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
+    if (cancelled) {
+      arbitrator.current.onPointerCancel(e.nativeEvent);
+    } else {
+      const multiAction = arbitrator.current.onPointerUp(e.nativeEvent);
+      if (multiAction === 'undo') {
+        if (press.current?.timer) clearTimeout(press.current.timer);
+        press.current = null;
+        actions.undo();
+        return;
+      }
+      if (multiAction === 'redo') {
+        if (press.current?.timer) clearTimeout(press.current.timer);
+        press.current = null;
+        actions.redo();
+        return;
+      }
+    }
     const p = press.current;
     if (!p || p.pointerId !== e.pointerId) return;
     if (p.timer) clearTimeout(p.timer);
@@ -172,9 +227,10 @@ export function DiagramView() {
     } else {
       store.select(sel);
     }
-    if (isDouble && sel) {
-      if (sel.t === 'el') store.openEditor({ t: 'el', id: sel.id, isNew: false });
-      else if (sel.t === 'root') store.openEditor({ t: 'root' });
+    if (isDouble) {
+      if (sel?.t === 'el') store.openEditor({ t: 'el', id: sel.id, isNew: false });
+      else if (e.pointerType === 'pen') store.openQuickDish({ x: e.clientX, y: e.clientY });
+      else if (sel?.t === 'root') store.openEditor({ t: 'root' });
     }
   };
 
@@ -225,8 +281,16 @@ export function DiagramView() {
     else if (bottom > sc.scrollTop + sc.clientHeight) sc.scrollTop = bottom - sc.clientHeight + 20;
   }, [selHit, zoom]);
 
+  const hoverHit = useMemo(() => {
+    if (!hoverId || selIds.has(hoverId)) return null;
+    return scene.hits.find((h): h is Extract<Hit, { t: 'el' }> => h.t === 'el' && h.id === hoverId) ?? null;
+  }, [scene, hoverId, selIds]);
+
   const overlay = (
     <svg className="overlay" width={scene.width * zoom} height={scene.height * zoom} viewBox={`0 0 ${scene.width} ${scene.height}`} aria-hidden="true">
+      {hoverHit && (
+        <rect x={hoverHit.x + 1} y={hoverHit.y + 1} width={Math.max(0, hoverHit.w - 1)} height={Math.max(0, hoverHit.h - 1)} className="hover-outline" />
+      )}
       {selHits.map((h) => (
         <g key={h.id}>
           {!activeBranchPoly && (
@@ -274,6 +338,7 @@ export function DiagramView() {
         onPointerMove={onPointerMove}
         onPointerUp={(e) => finish(e, false)}
         onPointerCancel={(e) => finish(e, true)}
+        onPointerLeave={() => setHoverId(null)}
         onContextMenu={(e) => {
           e.preventDefault();
           if (press.current && press.current.type !== 'mouse') return;
@@ -297,6 +362,68 @@ export function DiagramView() {
             ))}
           </div>
         )}
+      </div>
+      {quickDish && <QuickDish point={quickDish} />}
+    </div>
+  );
+}
+
+/**
+ * OwlLuna-inspired radial tool dish (Editor/InkDish.swift) at the Apple Pencil tip:
+ * 11 element wells around the rim + Undo/Redo/Edit/Delete in the center 2x2 grid.
+ */
+function QuickDish({ point }: { point: { x: number; y: number } }) {
+  const s = useStore();
+  const t = useTranslator(usePrefs((p) => p.lang));
+  const close = () => s.openQuickDish(null);
+  const centre = DishGeometry.centre(point, { width: window.innerWidth, height: window.innerHeight });
+  const spots = DishGeometry.wells(DISH_KINDS.length);
+  const hasEl = s.selection?.t === 'el';
+
+  return (
+    <div className="dish-backdrop" onPointerDown={close}>
+      <div
+        className="ink-dish"
+        role="dialog"
+        aria-label={t('elements')}
+        style={{
+          width: DishGeometry.diameter,
+          height: DishGeometry.diameter,
+          left: centre.x - DishGeometry.diameter / 2,
+          top: centre.y - DishGeometry.diameter / 2,
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <div className="dish-ring" aria-hidden="true" />
+        {DISH_KINDS.map((k, idx) => (
+          <button
+            key={k}
+            type="button"
+            className="dish-well"
+            title={t(('kind.' + k) as TKey)}
+            aria-label={t(('kind.' + k) as TKey)}
+            style={{
+              left: DishGeometry.diameter / 2 + spots[idx].x - DishGeometry.well / 2,
+              top: DishGeometry.diameter / 2 + spots[idx].y - DishGeometry.well / 2,
+            }}
+            onClick={(e) => {
+              close();
+              actions.insert(k, e.shiftKey);
+            }}
+          >
+            <KindIcon kind={k} />
+          </button>
+        ))}
+        <div className="dish-center">
+          <button type="button" className="tool" title={t('undo')} aria-label={t('undo')} disabled={s.past.length === 0}
+            onClick={() => { actions.undo(); }}><Icon name="undo" /></button>
+          <button type="button" className="tool" title={t('redo')} aria-label={t('redo')} disabled={s.future.length === 0}
+            onClick={() => { actions.redo(); }}><Icon name="redo" /></button>
+          <button type="button" className="tool" title={t('edit')} aria-label={t('edit')}
+            onClick={() => { close(); actions.editSelected(); }}><Icon name="edit" /></button>
+          <button type="button" className="tool" title={t('delete')} aria-label={t('delete')} disabled={!hasEl}
+            onClick={() => { close(); actions.remove(); }}><Icon name="delete" /></button>
+        </div>
       </div>
     </div>
   );

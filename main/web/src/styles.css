@@ -121,7 +121,7 @@ kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   grid-template-columns: minmax(0, 1fr);
   height: 100%;
-  height: 100dvh;
+  height: var(--vv-height, 100dvh);
   overflow: hidden;
 }
 
@@ -254,6 +254,7 @@ kbd { font: 11px var(--mono); color: var(--text-dim); white-space: nowrap; }
 .overlay { position: absolute; left: 0; top: 0; pointer-events: none; }
 .sel-fill { fill: var(--sel); }
 .sel-outline { fill: none; stroke: var(--sel-line); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.hover-outline { fill: none; stroke: var(--info); stroke-width: 1.5; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; opacity: 0.85; }
 .drop line { stroke: var(--sel-line); stroke-width: 3; vector-effect: non-scaling-stroke; stroke-linecap: round; }
 .drop circle { fill: var(--sel-line); }
 
@@ -428,9 +429,31 @@ table.keys th { color: var(--group-label); font-weight: 600; font-size: 11px; te
 details.attributes { border: 1px solid var(--border); border-radius: var(--r-widget); padding: 6px 10px; }
 details.attributes summary { cursor: default; font-weight: 600; font-size: 12px; }
 
-/* ================================================================ context menu, toast */
-.ctx-backdrop { position: fixed; inset: 0; z-index: 45; }
+/* ================================================================ context menu, InkDish, toast */
+.ctx-backdrop, .dish-backdrop { position: fixed; inset: 0; z-index: 45; }
 .ctx-menu { position: fixed; min-width: 220px; transform-origin: top left; }
+.ink-dish {
+  position: fixed; border-radius: 50%; background: var(--menu-bg);
+  box-shadow: var(--shadow-dialog); border: 1px solid var(--border);
+  animation: pop-in var(--t-med) var(--ease); user-select: none; -webkit-user-select: none;
+}
+.dish-ring {
+  position: absolute; left: 50%; top: 50%; width: 132px; height: 132px;
+  transform: translate(-50%, -50%); border-radius: 50%; border: 1px solid var(--border); pointer-events: none;
+}
+.dish-well {
+  position: absolute; width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid var(--border-strong); background: var(--panel); color: var(--text);
+  display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: default;
+  transition: transform var(--t-fast) var(--ease), background-color var(--t-fast), border-color var(--t-fast);
+}
+.dish-well svg { width: 18px; height: 18px; stroke-width: 1.5; }
+.dish-well:hover { background: var(--app-checked); border-color: var(--app); transform: scale(1.1); }
+.dish-well:active { transform: scale(0.92); background: var(--pressed); }
+.dish-center {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+}
 .toast {
   position: fixed; left: 50%; bottom: max(40px, calc(env(safe-area-inset-bottom) + 34px)); transform: translateX(-50%);
   z-index: 60; max-width: min(560px, calc(100vw - 32px));

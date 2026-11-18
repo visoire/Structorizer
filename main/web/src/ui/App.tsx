@@ -13,16 +13,21 @@ import { DiagramEditor, ElementEditor } from './ElementEditor';
 import { clearPrintArea, loadSession, preparePrintArea, saveSession } from './exporters';
 import { Icon, KindIcon } from './icons';
 import { applyUiFont } from './fonts';
+import { bindVisualViewport } from './ipad';
 import { MenuBar } from './MenuBar';
 import { SidePanel } from './SidePanel';
 
 const KINDS: ElementKind[] = ['instruction', 'alternative', 'case', 'for', 'while', 'repeat', 'forever', 'call', 'jump', 'parallel', 'try'];
 
-/** Desktop key bindings (user guide chapter 13). */
+/** Desktop key bindings (user guide chapter 13) + iPad Magic Keyboard Option+Digit bindings. */
 const KEY_INSERT: Record<string, ElementKind> = {
   F5: 'instruction', F6: 'alternative', F10: 'case', F7: 'for', F8: 'while', F9: 'repeat', F11: 'call', F12: 'jump',
 };
 const CTRL_KEY_INSERT: Record<string, ElementKind> = { F7: 'forever', F6: 'parallel', F5: 'try' };
+const ALT_CODE_INSERT: Record<string, ElementKind> = {
+  Digit1: 'instruction', Digit2: 'alternative', Digit3: 'case', Digit4: 'for', Digit5: 'while',
+  Digit6: 'repeat', Digit7: 'forever', Digit8: 'call', Digit9: 'jump', Digit0: 'parallel', Minus: 'try',
+};
 
 function ToolButton({ label, onClick, disabled, children, pressed }: {
   label: string; onClick: (e: React.MouseEvent) => void; disabled?: boolean; children: React.ReactNode; pressed?: boolean;
@@ -55,6 +60,7 @@ export function App() {
   }, [p.theme]);
   useEffect(() => { document.documentElement.lang = htmlLang(p.lang); }, [p.lang]);
   useEffect(() => { applyUiFont(); }, [p.uiFont, p.customUiFont]);
+  useEffect(() => bindVisualViewport(), []);
 
   // ---------- restore + autosave of all open diagrams (local only)
   useEffect(() => {
@@ -110,6 +116,7 @@ export function App() {
       let handled = true;
       if (!ctrl && !e.altKey && KEY_INSERT[k]) actions.insert(KEY_INSERT[k], e.shiftKey);
       else if (ctrl && !e.altKey && CTRL_KEY_INSERT[k]) actions.insert(CTRL_KEY_INSERT[k], e.shiftKey);
+      else if (!ctrl && e.altKey && ALT_CODE_INSERT[e.code]) actions.insert(ALT_CODE_INSERT[e.code], e.shiftKey);
       else if (ctrl && lower === 'z') { if (e.shiftKey) actions.redo(); else actions.undo(); }
       else if (ctrl && lower === 'y') actions.redo();
       else if (ctrl && (lower === 'c' || k === 'Insert')) actions.copy();
@@ -127,6 +134,7 @@ export function App() {
       else if (ctrl && lower === 'p') actions.print();
       else if (ctrl && lower === 'f') actions.find();
       else if (ctrl && lower === 't') actions.transmute();
+      else if (ctrl && lower === 'k') st.openQuickDish(st.quickDish ? null : { x: window.innerWidth / 2, y: window.innerHeight / 2 });
       else if (ctrl && e.shiftKey && lower === 'x') actions.exportCode();
       else if (ctrl && k === 'F11') actions.outsource();
       else if (ctrl && lower === 'r') actions.planned();
@@ -134,6 +142,7 @@ export function App() {
       else if (ctrl && (k === '+' || k === '=')) actions.zoomIn();
       else if (ctrl && k === '-') actions.zoomOut();
       else if (ctrl && k === '0') actions.zoomReset();
+      else if (ctrl && k === '9') actions.zoomFit();
       else if (ctrl && e.altKey && lower === 'v') usePrefs.getState().set({ switchTextComments: !usePrefs.getState().switchTextComments, commentsPlusText: false });
       else if (ctrl && k === 'ArrowUp') actions.moveUp();
       else if (ctrl && k === 'ArrowDown') actions.moveDown();
@@ -154,7 +163,7 @@ export function App() {
       else if (k === 'F4') usePrefs.getState().toggle('highlightVars');
       else if (e.code === 'NumpadSubtract') actions.collapse();
       else if (e.code === 'NumpadAdd') actions.expand();
-      else if (k === 'Escape') { st.select(null); st.openContextMenu(null); }
+      else if (k === 'Escape') { st.select(null); st.openContextMenu(null); st.openQuickDish(null); }
       else handled = false;
       if (handled) e.preventDefault();
     };
