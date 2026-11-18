@@ -1,11 +1,14 @@
 {
   "name": "Structorizer Web",
   "short_name": "Structorizer",
-  "description": "Create and edit Nassi-Shneiderman diagrams in the browser.",
+  "description": "Create, edit and execute Nassi-Shneiderman diagrams in the browser.",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#e6e6e6",
   "theme_color": "#f0f0f0",
+  "categories": ["education", "developer tools", "productivity"],
   "icons": [
     {
       "src": "./icon-192.png",

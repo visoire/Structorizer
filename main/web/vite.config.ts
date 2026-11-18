@@ -13,6 +13,8 @@ import pkg from './package.json' with { type: 'json' };
 const csp = (scriptSrc: string) => [
   "default-src 'self'",
   `script-src ${scriptSrc}`,
+  "worker-src 'self'",
+  "manifest-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
@@ -28,6 +30,71 @@ function cspPlugin(): Plugin {
     apply: 'build',
     transformIndexHtml(html) {
       return html.replace('<head>', `<head>\n    <meta http-equiv="Content-Security-Policy" content="${csp("'self'")}" />`);
+    },
+  };
+}
+
+/**
+ * PWA precache service worker generator (P1-26): precaches the build assets and offline shell
+ * without runtime caching of external origins.
+ */
+function pwaPlugin(): Plugin {
+  return {
+    name: 'structorizer-pwa',
+    apply: 'build',
+    enforce: 'post',
+    generateBundle(_opts, bundle) {
+      const assets = new Set<string>([
+        './',
+        './index.html',
+        './manifest.webmanifest',
+        './favicon.ico',
+        './favicon-32.png',
+        './apple-touch-icon.png',
+        './icon-192.png',
+        './icon-512.png',
+        './icon-maskable-512.png',
+        './docs/index.html',
+      ]);
+      for (const name of Object.keys(bundle)) {
+        if (!name.endsWith('.map') && !name.endsWith('.pdf')) {
+          assets.add('./' + name);
+        }
+      }
+      const cacheName = `structorizer-web-${pkg.version}`;
+      const swSource = `// SPDX-License-Identifier: GPL-3.0-or-later
+const CACHE_NAME = ${JSON.stringify(cacheName)};
+const PRECACHE = ${JSON.stringify([...assets], null, 2)};
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(async (cache) => {
+      for (const url of PRECACHE) {
+        try { await cache.add(url); } catch { /* ignore optional asset */ }
+      }
+    }).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME && k.startsWith('structorizer-web-')).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  event.respondWith(
+    caches.match(req, { ignoreSearch: true }).then((cached) => cached || fetch(req))
+  );
+});
+`;
+      this.emitFile({ type: 'asset', fileName: 'sw.js', source: swSource });
     },
   };
 }
@@ -79,7 +146,7 @@ export default defineConfig(({ mode }) => {
   return {
     // base './' so the build works from any sub folder (XAMPP, GitHub Pages, USB stick).
     base: './',
-    plugins: [react(), cspPlugin(), ...(single ? [singleFilePlugin()] : [])],
+    plugins: [react(), cspPlugin(), ...(single ? [singleFilePlugin()] : [pwaPlugin()])],
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
       __SINGLE_FILE__: JSON.stringify(single),

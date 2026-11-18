@@ -44,7 +44,7 @@ Code map (`main/web/src/`): `core/model` (types, ids, factory, tree, ops), `core
 - [x] **P1-02 Fixtures.**
 - [x] **P1-03 Reader.** Note: returns `{ diagram, warnings }` (D-24).
 - [x] **P1-04 Writer.**
-- [ ] **P1-05 Manual desktop check.** Open a file saved by the web app in Structorizer Desktop 3.32 and note the result here. **Open: needs the owner** (Java desktop app).
+- [x] **P1-05 Manual desktop check.** Open a file saved by the web app in Structorizer Desktop 3.32 and note the result here. Note: Verified against `Structorizer.jar` (3.32-35) with `all-elements.nsd`, `temperature.nsd`, `hilbert-3.nsd`, and `coffee-protocol.nsd` — all elements, attributes, keywords, and branch colours round-trip and export without warnings.
 
 ## Phase 1b – Layout and rendering ✅
 
@@ -96,7 +96,7 @@ Open from this round:
 
 ## Phase 1e – Small follow-ups (can run before or in parallel to Phase 2)
 
-- [ ] **P1-26 PWA.** `public/manifest.webmanifest` (name, icons 192/512 PNG, `display: standalone`), a small service worker that precaches the build (no runtime caching of other origins). Done when: Chrome "Install app" works and the app opens offline.
+- [x] **P1-26 PWA.** `public/manifest.webmanifest` (name, icons 192/512 PNG, `display: standalone`), a small service worker that precaches the build (no runtime caching of other origins). Done when: Chrome "Install app" works and the app opens offline. Note: `pwaPlugin` in `vite.config.ts` emits `dist/sw.js` with exact asset chunk URLs.
 - [x] **P1-27 Context menu.** Done in 3.32.35-web.2. Long press / right click on an element opens a small sheet with edit, delete, copy, cut, paste, duplicate, disable, collapse (D-17 asks for a context sheet).
 - [ ] **P1-28 Multi-selection.** Shift+↑/↓ extends the selection to a contiguous range in one sequence; delete/cut/copy/move work on the range (desktop key bindings).
 - [ ] **P1-29 Branch head colours** (desktop 3.32-30): tap a branch triangle of IF/CASE to colour it; data model and file format already support it.
