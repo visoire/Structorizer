@@ -183,7 +183,7 @@ export function DiagramView() {
   useEffect(() => {
     if (fitTick === 0 || !scrollRef.current) return;
     const sc = scrollRef.current;
-    const z = Math.min((sc.clientWidth - 32) / scene.width, (sc.clientHeight - 32) / scene.height);
+    const z = Math.min((sc.clientWidth - 64) / scene.width, (sc.clientHeight - 64) / scene.height);
     useStore.getState().setZoom(Math.max(0.3, Math.min(2, z)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitTick]);
@@ -222,8 +222,6 @@ export function DiagramView() {
     </svg>
   );
 
-  const selectedComment = prefs.showComments && selHit?.t === 'el' && selHit.comment.length > 0 ? selHit.comment.join('\n') : '';
-
   return (
     <div className="diagram-scroll" ref={scrollRef}
       onPointerDown={(e) => { if (e.target === scrollRef.current) useStore.getState().select(null); }}>
@@ -249,7 +247,6 @@ export function DiagramView() {
         <div className="diagram-svg" dangerouslySetInnerHTML={{ __html: svg }} />
         {overlay}
       </div>
-      {selectedComment && <div className="comment-pop" role="note">{selectedComment}</div>}
     </div>
   );
 }

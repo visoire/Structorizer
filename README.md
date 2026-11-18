@@ -1,4 +1,8 @@
-# Structorizer Web
+<p align="center">
+  <img src="assets/app-icon/hicolor/256x256/apps/io.github.visoire.structorizer.png" width="128" height="128" alt="Structorizer Web icon">
+</p>
+
+<h1 align="center">Structorizer Web</h1>
 
 A browser version of [Structorizer](https://structorizer.fisch.lu), the Nassi-Shneiderman
 diagram (structogram) editor used in many schools. It runs completely on your device, in any
@@ -12,6 +16,14 @@ current browser, including Safari on iPad (desktop issue
 
 Version **3.32-35** (web build `3.32.35-web.3`) · [Changelog](CHANGELOG.md) ·
 [Plan](info/plan.md) · [Roadmap](info/04-roadmap.md)
+
+<p align="center">
+  <img src="docs/images/showcase.png" alt="Structorizer Web in light mode showing the CoffeeProtocol easter egg diagram with live Python Code preview" width="860">
+</p>
+<p align="center">
+  <img src="docs/images/showcase-dark.png" alt="Structorizer Web in dark mode showing the CoffeeProtocol diagram and Python Code preview" width="860">
+</p>
+<p align="center"><sub><b>CoffeeProtocol</b> (<code>File → Examples</code>): live Python Code preview synchronized with the selected diagram element, in light and dark mode.</sub></p>
 
 ## Two versions
 
@@ -93,7 +105,8 @@ Tools: `list-diagrams`, `read-diagram`, `diagram-info`, `create-diagram`, `add-e
 | `main/web/tests` | unit tests and fixtures |
 | `main/mcp` | CLI and MCP server |
 | `scripts` | release and packaging scripts |
-| `docs/` | source analysis, file format, layout spec, decisions, issue review |
+| `docs/` | source analysis, file format, layout spec, decisions, issue review, screenshots |
+| `assets/` | application icons and icon source (`original.psd`, `hicolor`) |
 | `info/` | plan, roadmap, data model |
 
 ## Credits

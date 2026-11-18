@@ -33,6 +33,7 @@ describe('analysis', () => {
     expect(parseSignature({ ...d, text: ['f(a as Integer, b as Double) as Double'] })).toMatchObject({ name: 'f', params: [{ name: 'a' }, { name: 'b' }] });
     expect(parseSignature({ ...d, text: ['void show(int x)'] }).isFunction).toBe(false);
     expect(parseSignature({ ...d, text: ['hilbert(size: int; level: int; parity: int)'] }).params.length).toBe(3);
+    expect(parseSignature(createDiagram('program')).name).toBe('structorizer');
   });
 
   it('reads FOR loops from text', () => {

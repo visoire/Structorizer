@@ -203,15 +203,17 @@ export function parseSignature(d: Diagram): Signature {
   const head = d.text.join(' ').trim();
   const open = head.indexOf('(');
   if (open < 0) {
-    const name = head.split(/\s/)[0] || 'main';
-    return { name: sanitizeName(name), params: [], isFunction: false };
+    const raw = head.split(/\s/)[0];
+    const name = !raw || raw === '???' ? 'structorizer' : sanitizeName(raw);
+    return { name, params: [], isFunction: false };
   }
   const close = head.lastIndexOf(')');
   const before = head.slice(0, open).trim();
   const inner = head.slice(open + 1, close > open ? close : undefined);
   const after = close > open ? head.slice(close + 1).trim() : '';
   const beforeWords = before.split(/\s+/);
-  const name = beforeWords[beforeWords.length - 1] || 'sub';
+  const rawName = beforeWords[beforeWords.length - 1] || '';
+  const name = !rawName || rawName === '???' ? 'structorizer' : sanitizeName(rawName);
   let result: TypeInfo | undefined;
   const cStyle = beforeWords.length > 1;
   if (cStyle) result = parseType(beforeWords.slice(0, -1).join(' '));

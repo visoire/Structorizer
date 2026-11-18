@@ -5,14 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Documentation for Structorizer Web: how to draw, edit, save and export Nassi-Shneiderman diagrams in the browser, code export, MCP tools, privacy and self-hosting." />
   <meta name="referrer" content="no-referrer" />
-  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="icon" href="../favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png" />
   <title>Documentation | Structorizer Web</title>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <header class="site-head">
     <a class="brand" href="../">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="16"/><path d="M3 4l9 7 9-7M3 11h18M12 11v9"/></svg>
+      <img src="../src/assets/app-icon.png" width="24" height="24" alt="" aria-hidden="true" />
       <span>Structorizer Web</span>
     </a>
     <nav class="head-links" aria-label="Site">
@@ -68,7 +70,7 @@
           </ol>
           <p>New elements are inserted <strong>after</strong> the selected element. To insert <strong>before</strong> it, hold <kbd>Shift</kbd> while clicking the element button, or switch on the "insert before" button (arrow up) on a touch screen.</p>
           <h2 id="examples">Examples</h2>
-          <p><em>File › Examples</em> contains a temperature table, a diagram with every element type and the recursive <code>hilbert</code> subroutine from the desktop samples.</p>
+          <p><em>File › Examples</em> contains a temperature table, a diagram with every element type, the recursive <code>hilbert</code> subroutine from the desktop samples, and the <code>CoffeeProtocol</code> easter egg.</p>
           <h2 id="ipad">On the iPad</h2>
           <p>Open the address in Safari and choose <em>Share › Add to Home Screen</em>. Tap selects, double tap edits, a long press opens the context menu, and long press plus moving drags an element to a new place. Pinch to zoom.</p>
         </article>
@@ -207,7 +209,7 @@ node dist/cli.js mcp --root "C:\Users\me\Documents\Diagrams"</code></pre>
   "mcpServers": {
     "structorizer": {
       "command": "node",
-      "args": ["C:/xampp/htdocs/Structorizer/main/mcp/dist/cli.js", "mcp", "--root", "C:/Users/me/Documents/Diagrams"]
+      "args": ["C:/path/to/Structorizer/main/mcp/dist/cli.js", "mcp", "--root", "C:/Users/me/Documents/Diagrams"]
     }
   }
 }</code></pre>

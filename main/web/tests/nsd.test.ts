@@ -2,8 +2,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { readNsd, writeNsd } from '../src/core/io';
-import { countElements, walk } from '../src/core/model';
+import { readNsd, suggestFileName, writeNsd } from '../src/core/io';
+import { countElements, createDiagram, walk } from '../src/core/model';
 import type { Diagram, Element } from '../src/core/model';
 
 const fixture = (name: string) => readFileSync(resolve(process.cwd(), 'tests/fixtures', name), 'utf8');
@@ -84,5 +84,19 @@ describe('writeNsd', () => {
     walk(d, () => {});
     const xml = writeNsd({ ...d, comment: ['<tag> & "quote"', 'line 2'] });
     expect(readNsd(xml).diagram.comment).toEqual(['<tag> & "quote"', 'line 2']);
+  });
+
+  it('suggests structorizer.nsd for unnamed diagrams instead of ___.nsd', () => {
+    const d = createDiagram();
+    expect(suggestFileName(d)).toBe('structorizer.nsd');
+    expect(suggestFileName({ ...d, text: [''] })).toBe('structorizer.nsd');
+    expect(suggestFileName({ ...d, text: ['MyAlgo'] })).toBe('MyAlgo.nsd');
+  });
+
+  it('reads the CoffeeProtocol easter egg example cleanly', () => {
+    const xml = readFileSync(resolve(process.cwd(), 'src/examples/coffee-protocol.nsd'), 'utf8');
+    const { diagram, warnings } = readNsd(xml);
+    expect(warnings).toEqual([]);
+    expect(diagram.text).toEqual(['CoffeeProtocol']);
   });
 });

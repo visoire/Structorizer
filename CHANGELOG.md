@@ -12,10 +12,14 @@ build number. Desktop issue numbers refer to
 
 ## [3.32.35-web.3] – 2026-11-18 (corresponds to Structorizer 3.32-35)
 
-New look in the style of the Craft apps (GridCraft, WordCraft), a single-file version,
-font settings and a release script.
+New look in the style of the Craft apps (GridCraft, WordCraft), custom Structorizer icons,
+a single-file version, font settings and a release script.
 
 ### Changed
+- **Icons**: replaced the placeholder SVG icon and logos across the editor, documentation page,
+  favicons, Apple touch icon, and web manifest with the Structorizer icon set (`assets/app-icon/`).
+- **Default diagram name**: new unnamed diagrams (`???`) now use `structorizer` in the title bar
+  and suggest `structorizer.nsd` when saving instead of `___` / `___.nsd`.
 - **Design** follows the Craft design tokens: neutral grey title bar, ribbon and desk,
   flat icon buttons with hover and pressed states, checked tools with a soft accent and an
   accent underline, 4 px widget corners, 8 px menus, 10 px dialogs with soft popup shadows,
@@ -26,12 +30,14 @@ font settings and a release script.
 - **Dialogs**: header with close button, scrollable body, footer bar for the buttons,
   open animation, tabs with an animated underline.
 - **Controls**: new buttons (secondary, primary, danger, small), selects with a custom arrow,
-  focus line on inputs, rounded colour swatches, status dot in the status bar, toasts as
-  cards with a colour edge, Arranger index with an accent bar for the active diagram and
-  close buttons that appear on hover.
+  focus line on inputs, rounded colour swatches, status dot in the status bar (with selected
+  element comments shown inline), clean flat toasts without left accent borders, and Arranger
+  index close buttons that appear on hover.
 - Larger targets on touch screens (`pointer: coarse`); motion is reduced when the system asks for it.
 
 ### Added
+- **Easter egg example**: bundled `CoffeeProtocol` (`main/web/src/examples/coffee-protocol.nsd`)
+  under `File → Examples` and added light/dark showcase screenshots in `docs/images/`.
 - **Fonts** (Preferences › Fonts): font of the user interface and font of diagrams and
   exports, each from system font, Arial/Helvetica, Verdana, serif, monospace, rounded or any
   other installed font by name; diagram font size 10 to 22 px with a live preview. Only
@@ -39,7 +45,7 @@ font settings and a release script.
 - **Export look**: element colours on/off for pictures, transparent PNG background. SVG,
   PNG, PDF and EMF use the diagram font (EMF picks the first installed face).
 - **Single-file version** (`npm run build:single`): one self-contained `index.html`
-  (about 400 KB) with inlined script and styles; the Content Security Policy allows exactly
+  (about 420 KB) with inlined script and styles; the Content Security Policy allows exactly
   that script by its SHA-256 hash, so the single file is just as locked down.
 - **Release packages** like the Craft web packages: `structorizer-web-<v>.zip` (with
   `.htaccess`, `_headers`, `HOSTING.md`), `structorizer-single-<v>.zip`,
@@ -50,6 +56,8 @@ font settings and a release script.
 
 ### Fixed
 - Menus no longer throw when a pointer event comes from a non-element target.
+- Fit to window accounts for all 64 px of canvas padding so fitted diagrams no longer
+  overflow into scrollbars.
 
 ## [3.32.35-web.2] – 2026-11-18 (corresponds to Structorizer 3.32-35)
 

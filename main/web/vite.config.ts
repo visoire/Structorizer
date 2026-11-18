@@ -56,14 +56,16 @@ function singleFilePlugin(): Plugin {
       const hash = createHash('sha256').update(js).digest('base64');
       // function replacers: the inlined code contains `$&` and similar sequences that a
       // replacement string would expand
-      const icon = `data:image/svg+xml;base64,${readFileSync('public/favicon.svg').toString('base64')}`;
+      const icon = `data:image/png;base64,${readFileSync('public/favicon-32.png').toString('base64')}`;
       page = page
         .replace(/<script type="module" crossorigin src="[^"]+"><\/script>/, () => '')
         .replace(/<link rel="stylesheet" crossorigin href="[^"]+">/, () => '')
         .replace(/<link rel="modulepreload"[^>]*>/g, () => '')
-        .replace(/<link rel="icon"[^>]*>/, () => `<link rel="icon" type="image/svg+xml" href="${icon}" />`)
+        .replace(/<link rel="icon"[^>]*>\s*/g, () => '')
+        .replace(/<link rel="apple-touch-icon"[^>]*>\s*/g, () => '')
+        .replace(/<link rel="manifest"[^>]*>\s*/g, () => '')
         .replace(/<meta http-equiv="Content-Security-Policy" content="[^"]*" \/>/, () => `<meta http-equiv="Content-Security-Policy" content="${csp(`'sha256-${hash}'`)}" />`)
-        .replace('</head>', () => `  <style>${css}</style>\n  </head>`)
+        .replace('</head>', () => `    <link rel="icon" type="image/png" href="${icon}" />\n  <style>${css}</style>\n  </head>`)
         .replace('</body>', () => `  <script type="module">${js}</script>\n  </body>`);
       html.source = page;
     },

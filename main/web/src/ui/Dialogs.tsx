@@ -5,6 +5,7 @@ import { findById, KEYWORD_KEYS, updateElement, walk, type Element, type Keyword
 import { translator, type TKey } from '../i18n';
 import { useStore } from '../store/diagramStore';
 import { usePrefs, type Theme } from '../store/prefsStore';
+import appIcon from '../assets/app-icon.png';
 import { actions } from './actions';
 import { APP_VERSION, STRUCTORIZER_VERSION, clearLocalData } from './exporters';
 import { Modal } from './ElementEditor';
@@ -268,7 +269,10 @@ function AboutDialog() {
   const t = translator(usePrefs((p) => p.lang));
   return (
     <Modal title={`${t('appName')} ${STRUCTORIZER_VERSION}`} onClose={() => s.setDialog(null)} cancelLabel={t('close')}>
-      <p>{t('aboutText')}</p>
+      <div className="about-head">
+        <img src={appIcon} alt="" width={44} height={44} aria-hidden="true" />
+        <p>{t('aboutText')}</p>
+      </div>
       <p><strong>{t('privacy')}</strong></p>
       <p className="small">Web build {APP_VERSION} · GPL-3.0-or-later</p>
       <p>{t('sourceCode')}: <a href={REPO_URL} target="_blank" rel="noopener noreferrer">{REPO_URL}</a><br />

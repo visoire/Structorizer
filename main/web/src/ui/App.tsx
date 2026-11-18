@@ -5,6 +5,7 @@ import { parseSignature } from '../core/lang/analyze';
 import { translator, type TKey } from '../i18n';
 import { isDirty, useStore } from '../store/diagramStore';
 import { resolvedTheme, usePrefs } from '../store/prefsStore';
+import appIcon from '../assets/app-icon.png';
 import { actions } from './actions';
 import { ContextMenu, Dialogs } from './Dialogs';
 import { DiagramView } from './DiagramView';
@@ -150,12 +151,15 @@ export function App() {
   const title = parseSignature(s.diagram).name;
   const docCount = s.docs.length + 1;
   const hasEl = !!selEl;
+  const selComment = p.showComments && selEl && selEl.comment.some((c) => c.trim() !== '')
+    ? selEl.comment.map((c) => c.trim()).filter(Boolean).join(' · ')
+    : '';
 
   return (
     <div className={'app' + (p.panelOpen ? ' with-panel' : '')}>
       <header className="topbar">
         <div className="brand">
-          <span className="logo" aria-hidden="true"><KindIcon kind="alternative" /></span>
+          <img className="logo" src={appIcon} alt="" width={22} height={22} aria-hidden="true" />
           <span className="brand-name">Structorizer</span>
         </div>
         <MenuBar />
@@ -207,7 +211,10 @@ export function App() {
       </main>
 
       <footer className="statusbar">
-        <span>{sel ? (selEl ? t(('kind.' + selEl.kind) as TKey) : sel.t === 'root' ? t('diagramProps').replace(/\s*\.\.\.$/, '') : '∅') : t('selectHint')}</span>
+        <span className="status-left">
+          {sel ? (selEl ? t(('kind.' + selEl.kind) as TKey) : sel.t === 'root' ? t('diagramProps').replace(/\s*\.\.\.$/, '') : '∅') : t('selectHint')}
+          {selComment ? ` — ${selComment}` : ''}
+        </span>
         <span className={'status-right' + (storageOk ? '' : ' warn')}>{storageOk ? t('autosaved') : t('unsaved')}</span>
       </footer>
 

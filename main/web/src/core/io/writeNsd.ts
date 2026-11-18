@@ -126,6 +126,7 @@ export function writeNsd(d: Diagram, appVersion = '0.0.0'): string {
 
 /** File name suggestion: diagram name up to the first '(' or blank. */
 export function suggestFileName(d: Diagram): string {
-  const name = (d.text[0] ?? '').split(/[\s(:]/)[0].replace(/[^\w.-]/g, '_');
-  return (name && name !== '???' ? name : 'diagram') + '.nsd';
+  const raw = (d.text[0] ?? '').split(/[\s(:]/)[0].trim();
+  const name = raw && raw !== '???' ? raw.replace(/[^\w.-]/g, '_') : '';
+  return (name && !/^_+$/.test(name) ? name : 'structorizer') + '.nsd';
 }
