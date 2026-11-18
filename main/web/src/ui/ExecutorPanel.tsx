@@ -1,25 +1,29 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Executor control panel, variable watch, call stack, console, and Turtleizer window (P2-06, P2-07, P2-09).
+// Resizable & dockable Executor control panel, variable watch, call stack, console, and interactive Turtleizer studio.
 import { useEffect, useRef, useState } from 'react';
-import { formatValue, parseInputString, turtleToSvg, typeNameOf, type RuntimeVal } from '../core/exec';
+import { formatValue, parseInputString, turtleBounds, turtleToSvg, typeNameOf, type RuntimeVal } from '../core/exec';
 import { parseSignature } from '../core/lang/analyze';
 import { useTranslator } from '../i18n';
 import { useStore } from '../store/diagramStore';
 import { useExecStore } from '../store/execStore';
-import { usePrefs } from '../store/prefsStore';
+import { usePrefs, type ExecPosition } from '../store/prefsStore';
+import { downloadBlob } from './exporters';
 
-export function ExecutorPanel() {
+const POS_CYCLE: ExecPosition[] = ['bottom', 'right', 'top', 'left'];
+
+export function ExecutorPanel({ placement }: { placement?: 'vertical' | 'horizontal' }) {
   const ex = useExecStore();
   const diagram = useStore((s) => s.diagram);
   const selection = useStore((s) => s.selection);
-  const lang = usePrefs((p) => p.lang);
-  const t = useTranslator(lang);
+  const p = usePrefs();
+  const t = useTranslator(p.lang);
 
   const [inputVal, setInputVal] = useState('');
   const [editingVar, setEditingVar] = useState<string | null>(null);
   const [editVal, setEditVal] = useState('');
   const [subArgs, setSubArgs] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
+  const resizeDrag = useRef<{ start: number; size: number } | null>(null);
 
   const sig = parseSignature(diagram);
   const isSubWithParams = diagram.diagramType === 'sub' && sig.params.length > 0;
@@ -31,6 +35,9 @@ export function ExecutorPanel() {
     }
   }, [ex.status, ex.inputRequest]);
 
+  const isSide = p.execPosition === 'left' || p.execPosition === 'right';
+  if (placement === 'vertical' && isSide) return <>{ex.turtleOpen && !p.turtleDocked && <TurtleizerPanel />}</>;
+  if (placement === 'horizontal' && !isSide) return null;
   if (!ex.open && !ex.turtleOpen) return null;
 
   const frames = ex.execState.frames;
@@ -47,7 +54,7 @@ export function ExecutorPanel() {
 
   const buildArgs = (): RuntimeVal[] | undefined => {
     if (!isSubWithParams) return undefined;
-    return sig.params.map((p, i) => parseInputString(getDefaultSubArg(p.name, i), p.type, diagram.id));
+    return sig.params.map((param, i) => parseInputString(getDefaultSubArg(param.name, i), param.type, diagram.id));
   };
 
   const handleRun = () => {
@@ -63,15 +70,57 @@ export function ExecutorPanel() {
     }
   };
 
+  const cycleExecPos = () => {
+    const next = POS_CYCLE[(POS_CYCLE.indexOf(p.execPosition) + 1) % POS_CYCLE.length];
+    p.set({ execPosition: next });
+  };
+
   const selElId = selection?.t === 'el' ? selection.id : undefined;
   const hasBp = selElId ? ex.breakpoints.has(selElId) : false;
+
+  const styleObj = isSide
+    ? { ['--exec-w' as string]: `${p.execWidth}px` }
+    : { ['--exec-h' as string]: `${p.execHeight}px` };
 
   return (
     <>
       {ex.open && (
-        <section className="exec-panel" aria-label={t('executor')}>
+        <section
+          className={`exec-panel pos-${p.execPosition}`}
+          style={styleObj}
+          aria-label={t('executor')}
+        >
+          <div
+            className="exec-resize"
+            role="separator"
+            aria-orientation={isSide ? 'vertical' : 'horizontal'}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              resizeDrag.current = {
+                start: isSide ? e.clientX : e.clientY,
+                size: isSide ? p.execWidth : p.execHeight,
+              };
+              try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* ignore */ }
+            }}
+            onPointerMove={(e) => {
+              const d = resizeDrag.current;
+              if (!d) return;
+              if (isSide) {
+                const delta = p.execPosition === 'left' ? (e.clientX - d.start) : (d.start - e.clientX);
+                const w = Math.min(Math.max(260, d.size + delta), Math.min(820, window.innerWidth - 260));
+                p.set({ execWidth: Math.round(w) });
+              } else {
+                const delta = p.execPosition === 'top' ? (e.clientY - d.start) : (d.start - e.clientY);
+                const h = Math.min(Math.max(120, d.size + delta), Math.min(620, window.innerHeight - 180));
+                p.set({ execHeight: Math.round(h) });
+              }
+            }}
+            onPointerUp={() => { resizeDrag.current = null; }}
+            onPointerCancel={() => { resizeDrag.current = null; }}
+          />
+
           <div className="exec-bar">
-            <strong className="exec-title">{t('executor')}</strong>
+            <strong className="exec-title">{t('executor').replace(/\s*\.\.\.$/, '')}</strong>
             <span className={'exec-badge ' + ex.status}>{ex.status.toUpperCase()}</span>
             <button
               type="button"
@@ -79,7 +128,7 @@ export function ExecutorPanel() {
               disabled={ex.status === 'running' || ex.status === 'waitingInput'}
               onClick={handleRun}
             >
-              ▶ {ex.status === 'paused' ? 'Resume' : 'Run'}
+              ▶ {ex.status === 'paused' ? t('resume') : t('run')}
             </button>
             <button
               type="button"
@@ -87,7 +136,7 @@ export function ExecutorPanel() {
               disabled={ex.status === 'waitingInput'}
               onClick={handleStep}
             >
-              ⏭ Step
+              ⏭ {t('step')}
             </button>
             <button
               type="button"
@@ -95,7 +144,7 @@ export function ExecutorPanel() {
               disabled={ex.status !== 'running'}
               onClick={ex.pause}
             >
-              ⏸ Pause
+              ⏸ {t('pause')}
             </button>
             <button
               type="button"
@@ -103,10 +152,10 @@ export function ExecutorPanel() {
               disabled={ex.status === 'idle'}
               onClick={ex.stop}
             >
-              ⏹ Stop
+              ⏹ {t('stop')}
             </button>
-            <label className="exec-speed" title="Execution delay per step (ms)">
-              <span>Speed</span>
+            <label className="exec-speed" title={`${t('speed')} (ms)`}>
+              <span>{t('speed')}</span>
               <input
                 type="range"
                 min={0}
@@ -131,9 +180,8 @@ export function ExecutorPanel() {
               className={'btn small' + (ex.coverageOverlay ? ' on' : '')}
               aria-pressed={ex.coverageOverlay}
               onClick={ex.toggleCoverage}
-              title="Toggle execution count & coverage overlay (P2-09)"
             >
-              ✓ Coverage
+              ✓ {t('coverage')}
             </button>
             <button
               type="button"
@@ -141,7 +189,15 @@ export function ExecutorPanel() {
               aria-pressed={ex.turtleOpen}
               onClick={() => ex.setTurtleOpen(!ex.turtleOpen)}
             >
-              🐢 {t('turtleizer')}
+              🐢 {t('turtleizer').replace(/\s*\.\.\.$/, '')}
+            </button>
+            <button
+              type="button"
+              className="icon-btn"
+              title={`${t('execPos')}: ${t(p.execPosition === 'bottom' ? 'posBottom' : p.execPosition === 'top' ? 'posTop' : p.execPosition === 'left' ? 'posLeft' : 'posRight')}`}
+              onClick={cycleExecPos}
+            >
+              ⬒
             </button>
             <button
               type="button"
@@ -158,14 +214,14 @@ export function ExecutorPanel() {
 
           {isSubWithParams && (ex.status === 'idle' || ex.status === 'done' || ex.status === 'error') && (
             <div className="exec-params">
-              <span className="hint">Parameters for <code>{sig.name}</code>:</span>
-              {sig.params.map((p, i) => (
-                <label key={p.name} className="exec-param">
-                  <span>{p.name}:</span>
+              <span className="hint"><code>{sig.name}</code>:</span>
+              {sig.params.map((param, i) => (
+                <label key={param.name} className="exec-param">
+                  <span>{param.name}:</span>
                   <input
                     type="text"
-                    value={getDefaultSubArg(p.name, i)}
-                    onChange={(e) => setSubArgs({ ...subArgs, [p.name]: e.target.value })}
+                    value={getDefaultSubArg(param.name, i)}
+                    onChange={(e) => setSubArgs({ ...subArgs, [param.name]: e.target.value })}
                   />
                 </label>
               ))}
@@ -187,29 +243,29 @@ export function ExecutorPanel() {
                 ref={inputRef}
                 type="text"
                 value={inputVal}
-                placeholder={`Value for ${ex.inputRequest.target}`}
+                placeholder={ex.inputRequest.target}
                 onChange={(e) => setInputVal(e.target.value)}
               />
               <button type="submit" className="btn small primary">{t('ok')}</button>
             </form>
           )}
 
-          <div className="exec-grid">
+          <div className={'exec-grid' + (ex.turtleOpen && p.turtleDocked ? ' with-turtle' : '')}>
             <div className="exec-vars">
               <div className="exec-sec-head">
-                <span>Variables {topFrame ? `(${topFrame.name})` : ''}</span>
+                <span>{t('variables')} {topFrame ? `(${topFrame.name})` : ''}</span>
                 {frames.length > 1 && (
                   <span className="exec-stack" title="Call stack">
-                    Stack: {frames.map((f) => f.name).join(' → ')}
+                    {frames.map((f) => f.name).join(' → ')}
                   </span>
                 )}
               </div>
               {vars.length === 0 ? (
-                <p className="hint small exec-empty">No variables assigned yet.</p>
+                <p className="hint small exec-empty">{t('noVariables')}</p>
               ) : (
                 <table className="keys exec-table">
                   <thead>
-                    <tr><th>Name</th><th>Type</th><th>Value</th></tr>
+                    <tr><th>{t('varName')}</th><th>{t('varType')}</th><th>{t('varValue')}</th></tr>
                   </thead>
                   <tbody>
                     {vars.map(([name, val]) => {
@@ -226,7 +282,6 @@ export function ExecutorPanel() {
                                 setEditVal(formatValue(val));
                               }
                             }}
-                            title={ex.status === 'paused' ? 'Click to edit variable value' : undefined}
                           >
                             {isEditing ? (
                               <input
@@ -255,9 +310,9 @@ export function ExecutorPanel() {
 
             <div className="exec-console">
               <div className="exec-sec-head">
-                <span>Output Console ({ex.execState.outputs.length})</span>
+                <span>{t('outputConsole')} ({ex.execState.outputs.length})</span>
                 {ex.returnValue !== undefined && ex.returnValue !== null && (
-                  <span className="exec-ret">Return: <code>{formatValue(ex.returnValue)}</code></span>
+                  <span className="exec-ret">{t('returnVal')}: <code>{formatValue(ex.returnValue)}</code></span>
                 )}
               </div>
               <div className="exec-out-list">
@@ -275,61 +330,188 @@ export function ExecutorPanel() {
                   </div>
                 )}
                 {ex.execState.outputs.length === 0 && !ex.error && (
-                  <p className="hint small exec-empty">Program output will appear here.</p>
+                  <p className="hint small exec-empty">{t('noOutput')}</p>
                 )}
               </div>
             </div>
+
+            {ex.turtleOpen && p.turtleDocked && <TurtleizerPanel docked />}
           </div>
         </section>
       )}
-      {ex.turtleOpen && <TurtleizerPanel />}
+      {ex.turtleOpen && (!p.turtleDocked || !ex.open) && <TurtleizerPanel />}
     </>
   );
 }
 
-function TurtleizerPanel() {
+function TurtleizerPanel({ docked = false }: { docked?: boolean }) {
   const ex = useExecStore();
-  const lang = usePrefs((p) => p.lang);
-  const t = useTranslator(lang);
+  const p = usePrefs();
+  const t = useTranslator(p.lang);
   const turtle = ex.execState.turtle;
 
-  const xs = [turtle.homeX, turtle.x, ...turtle.segments.flatMap((s) => [s.x1, s.x2])];
-  const ys = [turtle.homeY, turtle.y, ...turtle.segments.flatMap((s) => [s.y1, s.y2])];
-  const minX = Math.floor(Math.min(0, ...xs) - 24);
-  const minY = Math.floor(Math.min(0, ...ys) - 24);
-  const maxX = Math.ceil(Math.max(500, ...xs) + 24);
-  const maxY = Math.ceil(Math.max(500, ...ys) + 24);
-  const vw = Math.max(200, maxX - minX);
-  const vh = Math.max(200, maxY - minY);
+  const [pos, setPos] = useState<{ x: number; y: number }>(() => ({
+    x: Math.max(16, window.innerWidth - p.turtleWidth - 36),
+    y: Math.max(64, window.innerHeight - p.turtleHeight - 96),
+  }));
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [showCursor, setShowCursor] = useState(true);
+  const [hoverPt, setHoverPt] = useState<{ x: number; y: number } | null>(null);
+
+  const moveDrag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const sizeDrag = useRef<{ sx: number; sy: number; ow: number; oh: number } | null>(null);
+  const panDrag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  const bounds = turtleBounds(turtle);
+  const viewW = bounds.vw / zoom;
+  const viewH = bounds.vh / zoom;
+  const vx = bounds.minX + (bounds.vw - viewW) / 2 - pan.x;
+  const vy = bounds.minY + (bounds.vh - viewH) / 2 - pan.y;
 
   const downloadSvg = () => {
     const svg = turtleToSvg(turtle);
-    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'turtleizer.svg';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    downloadBlob(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), 'turtleizer.svg');
   };
 
+  const downloadPng = async () => {
+    const svg = turtleToSvg(turtle);
+    const img = new Image();
+    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+    try {
+      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); img.src = url; });
+      const scale = 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.ceil(bounds.vw * scale);
+      canvas.height = Math.ceil(bounds.vh * scale);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((b) => { if (b) downloadBlob(b, 'turtleizer.png'); }, 'image/png');
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const gridLines: React.ReactNode[] = [];
+  if (p.turtleGrid) {
+    const step = 50;
+    const gx0 = Math.floor(bounds.minX / step) * step;
+    const gx1 = bounds.minX + bounds.vw;
+    const gy0 = Math.floor(bounds.minY / step) * step;
+    const gy1 = bounds.minY + bounds.vh;
+    for (let x = gx0; x <= gx1; x += step) {
+      const isHome = x === turtle.homeX;
+      gridLines.push(
+        <line key={'gx-' + x} x1={x} y1={gy0} x2={x} y2={gy1}
+          stroke={isHome ? 'rgba(37,99,235,0.28)' : 'rgba(128,128,128,0.16)'}
+          strokeWidth={isHome ? 1.2 : 0.7} />,
+      );
+    }
+    for (let y = gy0; y <= gy1; y += step) {
+      const isHome = y === turtle.homeY;
+      gridLines.push(
+        <line key={'gy-' + y} x1={gx0} y1={y} x2={gx1} y2={y}
+          stroke={isHome ? 'rgba(37,99,235,0.28)' : 'rgba(128,128,128,0.16)'}
+          strokeWidth={isHome ? 1.2 : 0.7} />,
+      );
+    }
+  }
+
   return (
-    <div className="turtle-float" role="dialog" aria-label={t('turtleizer')}>
-      <div className="turtle-head">
-        <strong>🐢 {t('turtleizer')}</strong>
-        <span className="hint small">
-          X: {Math.round(turtle.x)} · Y: {Math.round(turtle.y)} · {Math.round(turtle.orientation)}°
+    <div
+      className={docked ? 'turtle-docked' : 'turtle-float'}
+      role="dialog"
+      aria-label={t('turtleizer')}
+      style={
+        docked
+          ? undefined
+          : { left: pos.x, top: pos.y, width: p.turtleWidth, height: p.turtleHeight }
+      }
+    >
+      <div
+        className="turtle-head"
+        onPointerDown={(e) => {
+          if (docked || (e.target as HTMLElement).closest('button')) return;
+          e.preventDefault();
+          moveDrag.current = { sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y };
+          try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* ignore */ }
+        }}
+        onPointerMove={(e) => {
+          const m = moveDrag.current;
+          if (!m) return;
+          setPos({
+            x: Math.max(8, Math.min(window.innerWidth - 160, m.ox + (e.clientX - m.sx))),
+            y: Math.max(8, Math.min(window.innerHeight - 100, m.oy + (e.clientY - m.sy))),
+          });
+        }}
+        onPointerUp={() => { moveDrag.current = null; }}
+        onPointerCancel={() => { moveDrag.current = null; }}
+      >
+        <strong>🐢 {t('turtleizer').replace(/\s*\.\.\.$/, '')}</strong>
+        <span className="turtle-telemetry">
+          <span className="turtle-swatch" style={{ background: turtle.penColor }} title={turtle.penColor} />
+          {turtle.penDown ? '●' : '○'} ({Math.round(turtle.x)}, {Math.round(turtle.y)}) · {Math.round(turtle.orientation)}° · {turtle.segments.length} seg
+          {hoverPt ? ` · [${hoverPt.x}, ${hoverPt.y}]` : ''}
         </span>
-        <button type="button" className="btn small" onClick={ex.clearTurtle}>Clear</button>
-        <button type="button" className="btn small" onClick={downloadSvg}>SVG</button>
-        <button type="button" className="icon-btn close" aria-label={t('close')} onClick={() => ex.setTurtleOpen(false)}>
-          <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true">
-            <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
-        </button>
+        <div className="turtle-tools">
+          <button type="button" className={'btn small' + (p.turtleGrid ? ' on' : '')} onClick={() => p.toggle('turtleGrid')}>{t('turtleGrid')}</button>
+          <button type="button" className={'btn small' + (showCursor ? ' on' : '')} onClick={() => setShowCursor(!showCursor)} title="Toggle turtle cursor">🐢</button>
+          <button type="button" className="btn small" onClick={() => setZoom((z) => Math.min(8, +(z * 1.25).toFixed(2)))} title={t('zoomIn')}>+</button>
+          <button type="button" className="btn small" onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} title={t('zoomFit')}>{Math.round(zoom * 100)}%</button>
+          <button type="button" className="btn small" onClick={() => setZoom((z) => Math.max(0.25, +(z / 1.25).toFixed(2)))} title={t('zoomOut')}>−</button>
+          <button type="button" className="btn small" onClick={ex.clearTurtle}>{t('turtleClear')}</button>
+          <button type="button" className="btn small" onClick={downloadSvg}>SVG</button>
+          <button type="button" className="btn small" onClick={() => void downloadPng()}>PNG</button>
+          {ex.open && (
+            <button type="button" className="btn small" onClick={() => p.toggle('turtleDocked')}>
+              {p.turtleDocked ? t('turtleFloat') : t('turtleDock')}
+            </button>
+          )}
+          <button type="button" className="icon-btn close" aria-label={t('close')} onClick={() => ex.setTurtleOpen(false)}>
+            <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true">
+              <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
       </div>
-      <div className="turtle-canvas-wrap" style={{ background: turtle.bgColor }}>
-        <svg viewBox={`${minX} ${minY} ${vw} ${vh}`} className="turtle-svg">
+
+      <div
+        className="turtle-canvas-wrap"
+        style={{ background: turtle.bgColor }}
+        onWheel={(e) => {
+          e.preventDefault();
+          setZoom((z) => Math.min(8, Math.max(0.25, +(z * (e.deltaY < 0 ? 1.15 : 0.87)).toFixed(2))));
+        }}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          panDrag.current = { sx: e.clientX, sy: e.clientY, ox: pan.x, oy: pan.y };
+          try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* ignore */ }
+        }}
+        onPointerMove={(e) => {
+          if (svgRef.current) {
+            const r = svgRef.current.getBoundingClientRect();
+            const gx = Math.round(vx + ((e.clientX - r.left) / Math.max(1, r.width)) * viewW);
+            const gy = Math.round(vy + ((e.clientY - r.top) / Math.max(1, r.height)) * viewH);
+            setHoverPt({ x: gx, y: gy });
+          }
+          const pd = panDrag.current;
+          if (!pd || !svgRef.current) return;
+          const r = svgRef.current.getBoundingClientRect();
+          const scaleX = viewW / Math.max(1, r.width);
+          const scaleY = viewH / Math.max(1, r.height);
+          setPan({
+            x: pd.ox + (e.clientX - pd.sx) * scaleX,
+            y: pd.oy + (e.clientY - pd.sy) * scaleY,
+          });
+        }}
+        onPointerUp={() => { panDrag.current = null; }}
+        onPointerCancel={() => { panDrag.current = null; }}
+        onPointerLeave={() => setHoverPt(null)}
+      >
+        <svg ref={svgRef} viewBox={`${vx} ${vy} ${viewW} ${viewH}`} className="turtle-svg">
+          {gridLines}
           {turtle.segments.map((s, i) => (
             <line
               key={i}
@@ -338,17 +520,45 @@ function TurtleizerPanel() {
               x2={s.x2}
               y2={s.y2}
               stroke={s.color}
-              strokeWidth={1.6}
+              strokeWidth={s.width ?? 1.8}
               strokeLinecap="round"
             />
           ))}
-          {turtle.visible && (
+          {turtle.labels.map((l, i) => (
+            <text key={'lbl-' + i} x={l.x} y={l.y} fill={l.color} fontSize="12" fontFamily="sans-serif">
+              {l.text}
+            </text>
+          ))}
+          {turtle.visible && showCursor && (
             <g transform={`translate(${turtle.x}, ${turtle.y}) rotate(${turtle.orientation})`}>
-              <polygon points="0,-9 6,7 0,4 -6,7" fill="#16a34a" stroke="#052e16" strokeWidth="1.2" />
+              <polygon points="0,-10 7,8 0,4 -7,8" fill="#16a34a" stroke="#052e16" strokeWidth="1.2" />
+              <circle cx="0" cy="0" r="2" fill={turtle.penColor} />
             </g>
           )}
         </svg>
       </div>
+
+      {!docked && (
+        <div
+          className="turtle-resize-grip"
+          title="Resize Turtleizer window"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            sizeDrag.current = { sx: e.clientX, sy: e.clientY, ow: p.turtleWidth, oh: p.turtleHeight };
+            try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* ignore */ }
+          }}
+          onPointerMove={(e) => {
+            const sd = sizeDrag.current;
+            if (!sd) return;
+            const w = Math.min(Math.max(280, sd.ow + (e.clientX - sd.sx)), window.innerWidth - 24);
+            const h = Math.min(Math.max(220, sd.oh + (e.clientY - sd.sy)), window.innerHeight - 48);
+            p.set({ turtleWidth: Math.round(w), turtleHeight: Math.round(h) });
+          }}
+          onPointerUp={() => { sizeDrag.current = null; }}
+          onPointerCancel={() => { sizeDrag.current = null; }}
+        />
+      )}
     </div>
   );
 }

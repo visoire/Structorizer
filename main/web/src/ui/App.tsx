@@ -237,12 +237,17 @@ export function App() {
           </div><span className="group-label">{t('grpView')}</span></div>
         </div>
 
+        {p.execPosition === 'top' && <ExecutorPanel placement="vertical" />}
+
         <main className="workspace">
+          {p.panelPosition === 'left' && <SidePanel />}
+          {p.execPosition === 'left' && <ExecutorPanel placement="horizontal" />}
           <DiagramView />
-          <SidePanel />
+          {p.execPosition === 'right' && <ExecutorPanel placement="horizontal" />}
+          {p.panelPosition !== 'left' && <SidePanel />}
         </main>
 
-        <ExecutorPanel />
+        {p.execPosition !== 'top' && <ExecutorPanel placement="vertical" />}
 
         <footer className="statusbar">
           <span className="status-left">

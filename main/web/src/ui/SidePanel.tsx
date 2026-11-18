@@ -89,9 +89,9 @@ function ArrangerIndex() {
         <button type="button" className="btn small" onClick={actions.newDiagram}>+ {t('newDiagram')}</button>
         <button type="button" className="btn small" onClick={() => void actions.open()}>{t('open')}</button>
         <button type="button" className="btn small" onClick={actions.toggleArrangerBoard}>
-          {s.viewMode === 'arranger' ? 'Editor' : 'Board'}
+          {s.viewMode === 'arranger' ? t('backToEditor') : t('arrangerBoard')}
         </button>
-        <button type="button" className="btn small" onClick={actions.exportArrz} title="Export portable .arrz archive">.arrz</button>
+        <button type="button" className="btn small" onClick={actions.exportArrz} title={t('exportArrz')}>.arrz</button>
       </div>
       {groups.map((g) => {
         const list = docs.filter((d) => d.diagram.diagramType === g.type)
@@ -127,9 +127,9 @@ function ArrangerIndex() {
       })}
       {p.analyserWarnings && (
         <section className="arr-group analyser-section">
-          <h3>Analyser ({findings.length})</h3>
+          <h3>{t('analyser')} ({findings.length})</h3>
           {findings.length === 0 ? (
-            <p className="hint small">No static analysis issues detected.</p>
+            <p className="hint small">{t('analyserNone')}</p>
           ) : (
             <ul className="analyser-list">
               {findings.map((f, i) => (
@@ -159,21 +159,26 @@ export function SidePanel() {
   const p = usePrefs();
   const t = useTranslator(p.lang);
   const drag = useRef<{ x: number; w: number } | null>(null);
+  const isLeft = p.panelPosition === 'left';
 
   if (!p.panelOpen) return null;
   return (
-    <aside className="side-panel" style={{ ['--panel-w' as string]: `${p.panelWidth}px` }} aria-label={t('openPanel')}>
+    <aside className={'side-panel pos-' + p.panelPosition} style={{ ['--panel-w' as string]: `${p.panelWidth}px` }} aria-label={t('openPanel')}>
       <div className="panel-resize" role="separator" aria-orientation="vertical"
-        onPointerDown={(e) => { drag.current = { x: e.clientX, w: p.panelWidth }; (e.target as HTMLElement).setPointerCapture(e.pointerId); }}
+        onPointerDown={(e) => { e.preventDefault(); drag.current = { x: e.clientX, w: p.panelWidth }; try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* ignore */ } }}
         onPointerMove={(e) => {
           if (!drag.current) return;
-          const w = Math.min(Math.max(260, drag.current.w - (e.clientX - drag.current.x)), Math.min(900, window.innerWidth - 320));
+          const delta = isLeft ? (e.clientX - drag.current.x) : (drag.current.x - e.clientX);
+          const w = Math.min(Math.max(240, drag.current.w + delta), Math.min(900, window.innerWidth - 260));
           p.set({ panelWidth: Math.round(w) });
         }}
-        onPointerUp={() => { drag.current = null; }} />
+        onPointerUp={() => { drag.current = null; }}
+        onPointerCancel={() => { drag.current = null; }} />
       <div className="panel-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={p.panelTab === 'index'} onClick={() => p.set({ panelTab: 'index' })}>{t('arrangerIndex')}</button>
         <button type="button" role="tab" aria-selected={p.panelTab === 'code'} onClick={() => p.set({ panelTab: 'code' })}>{t('codePreview')}</button>
+        <button type="button" className="icon-btn" title={`${t('panelPos')}: ${t(isLeft ? 'posRight' : 'posLeft')}`}
+          onClick={() => p.set({ panelPosition: isLeft ? 'right' : 'left' })}>⇄</button>
         <button type="button" className="icon-btn close" aria-label={t('closePanel')} title={t('closePanel')} onClick={() => p.set({ panelOpen: false })}><svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg></button>
       </div>
       <div className="panel-body">

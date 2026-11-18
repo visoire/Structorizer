@@ -4,7 +4,7 @@ import { LANGUAGES, type LangId } from '../core/gen/generators';
 import { findById, KEYWORD_KEYS, updateElement, walk, type Element, type Keywords } from '../core/model';
 import { LANGS, useTranslator, type Lang, type TKey } from '../i18n';
 import { useStore } from '../store/diagramStore';
-import { usePrefs, type Theme } from '../store/prefsStore';
+import { usePrefs, type ExecPosition, type PanelPosition, type Theme } from '../store/prefsStore';
 import appIcon from '../assets/app-icon.png';
 import { actions } from './actions';
 import { APP_VERSION, STRUCTORIZER_VERSION, clearLocalData } from './exporters';
@@ -23,7 +23,7 @@ function PrefsDialog() {
   const [tab, setTab] = useState<'general' | 'fonts' | 'view' | 'export' | 'parser' | 'data'>('general');
   const [kw, setKw] = useState<Keywords>({ ...s.diagram.keywords });
   const close = () => s.setDialog(null);
-  const Check = ({ k, label }: { k: 'showComments' | 'highlightVars' | 'cOperators' | 'switchTextComments' | 'commentsPlusText' | 'darkDiagram' | 'simplifiedToolbar' | 'involveSubroutines' | 'confirmDelete'; label: TKey }) => (
+  const Check = ({ k, label }: { k: 'showComments' | 'highlightVars' | 'cOperators' | 'switchTextComments' | 'commentsPlusText' | 'analyserWarnings' | 'darkDiagram' | 'simplifiedToolbar' | 'involveSubroutines' | 'confirmDelete'; label: TKey }) => (
     <label className="check"><input type="checkbox" checked={p[k]} onChange={() => p.toggle(k)} /> {t(label)}</label>
   );
   const applyKeywords = () => {
@@ -62,9 +62,21 @@ function PrefsDialog() {
           <Check k="switchTextComments" label="switchTextComments" />
           <Check k="highlightVars" label="highlightVars" />
           <Check k="cOperators" label="cOperators" />
-          <label className="check">
-            <input type="checkbox" checked={p.analyserWarnings} onChange={() => p.toggle('analyserWarnings')} /> Analyse structogram (show warning triangles &amp; findings)
-          </label>
+          <Check k="analyserWarnings" label="analyseStructogram" />
+          <fieldset className="radio-row"><legend>{t('panelPos')}</legend>
+            {(['right', 'left'] as PanelPosition[]).map((pos) => (
+              <label key={pos}>
+                <input type="radio" name="panelPos" checked={p.panelPosition === pos} onChange={() => p.set({ panelPosition: pos })} /> {t(pos === 'left' ? 'posLeft' : 'posRight')}
+              </label>
+            ))}
+          </fieldset>
+          <fieldset className="radio-row"><legend>{t('execPos')}</legend>
+            {(['bottom', 'top', 'left', 'right'] as ExecPosition[]).map((pos) => (
+              <label key={pos}>
+                <input type="radio" name="execPos" checked={p.execPosition === pos} onChange={() => p.set({ execPosition: pos })} /> {t(pos === 'bottom' ? 'posBottom' : pos === 'top' ? 'posTop' : pos === 'left' ? 'posLeft' : 'posRight')}
+              </label>
+            ))}
+          </fieldset>
         </div>
       )}
       {tab === 'export' && (

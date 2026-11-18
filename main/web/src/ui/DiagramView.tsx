@@ -503,6 +503,7 @@ function QuickDish({ point }: { point: { x: number; y: number } }) {
  */
 function ArrangerBoard({ engine, dark }: { engine: ReturnType<typeof createLayoutEngine>; dark: boolean }) {
   const s = useStore();
+  const t = useTranslator(usePrefs((p) => p.lang));
   const docs = s.allDocs();
   const dragRef = useRef<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
 
@@ -518,13 +519,13 @@ function ArrangerBoard({ engine, dark }: { engine: ReturnType<typeof createLayou
       onPointerCancel={() => { dragRef.current = null; }}
     >
       <div className="arranger-board-toolbar">
-        <strong>Arranger Surface ({docs.length})</strong>
-        <button type="button" className="btn small" onClick={actions.newDiagram}>+ New Diagram</button>
-        <button type="button" className="btn small" onClick={() => void actions.open()}>Open (.nsd / .arrz)</button>
-        <button type="button" className="btn small" onClick={s.autoLayoutDocs}>Auto-Layout Grid</button>
-        <button type="button" className="btn small" onClick={actions.exportArrz}>Export .arrz</button>
-        <button type="button" className="btn small" onClick={actions.exportArr}>Export .arr</button>
-        <button type="button" className="btn small primary" onClick={() => s.setViewMode('editor')}>Back to Editor</button>
+        <strong>{t('arrangerBoard')} ({docs.length})</strong>
+        <button type="button" className="btn small" onClick={actions.newDiagram}>+ {t('newDiagram')}</button>
+        <button type="button" className="btn small" onClick={() => void actions.open()}>{t('open')}</button>
+        <button type="button" className="btn small" onClick={s.autoLayoutDocs}>{t('autoLayout')}</button>
+        <button type="button" className="btn small" onClick={actions.exportArrz}>.arrz</button>
+        <button type="button" className="btn small" onClick={actions.exportArr}>.arr</button>
+        <button type="button" className="btn small primary" onClick={() => s.setViewMode('editor')}>{t('backToEditor')}</button>
       </div>
       <div className="arranger-board-canvas">
         {docs.map((doc) => {
@@ -555,18 +556,18 @@ function ArrangerBoard({ engine, dark }: { engine: ReturnType<typeof createLayou
                 <button
                   type="button"
                   className="btn small"
-                  title={doc.pinned ? 'Unpin diagram' : 'Pin diagram position'}
+                  title={doc.pinned ? t('pinned') : t('pin')}
                   onClick={(e) => { e.stopPropagation(); s.togglePinDoc(doc.id); }}
                 >
-                  {doc.pinned ? 'Pinned' : 'Pin'}
+                  {doc.pinned ? t('pinned') : t('pin')}
                 </button>
                 <button
                   type="button"
                   className="btn small"
-                  title="Edit in main view"
+                  title={t('edit')}
                   onClick={(e) => { e.stopPropagation(); s.switchDoc(doc.id); s.setViewMode('editor'); }}
                 >
-                  Edit
+                  {t('edit').replace(/\s*\.\.\.$/, '')}
                 </button>
               </div>
               <div className="arr-card-body" dangerouslySetInnerHTML={{ __html: svg }} />

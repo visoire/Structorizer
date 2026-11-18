@@ -83,6 +83,17 @@ export const en = {
   'font.system': 'System font', 'font.arial': 'Arial / Helvetica', 'font.verdana': 'Verdana (easy to read)', 'font.serif': 'Serif (Georgia, Times)',
   'font.mono': 'Monospace (Consolas, Menlo)', 'font.rounded': 'Rounded', 'font.custom': 'Other installed font ...',
   dropHere: 'Drop here',
+  // analyser, arranger board, executor, turtleizer & layout positions
+  analyseStructogram: 'Analyse structogram?', arrangerBoard: 'Arranger board',
+  exportArrz: 'Arrangement (.arrz) ...', exportArr: 'Arrangement list (.arr) ...',
+  analyser: 'Analyser', analyserNone: 'No static analysis issues detected.',
+  autoLayout: 'Auto-layout grid', backToEditor: 'Back to editor', pin: 'Pin', pinned: 'Pinned',
+  run: 'Run', resume: 'Resume', step: 'Step', pause: 'Pause', stop: 'Stop', speed: 'Speed', coverage: 'Coverage',
+  variables: 'Variables', noVariables: 'No variables assigned yet.', varName: 'Name', varType: 'Type', varValue: 'Value',
+  outputConsole: 'Output console', noOutput: 'Program output will appear here.', returnVal: 'Return',
+  turtleClear: 'Clear', turtleGrid: 'Grid', turtleDock: 'Dock', turtleFloat: 'Float',
+  panelPos: 'Side panel position', execPos: 'Executor panel position',
+  posLeft: 'Left', posRight: 'Right', posBottom: 'Bottom', posTop: 'Top',
 } as const;
 
 export type Dict = Record<keyof typeof en, string>;

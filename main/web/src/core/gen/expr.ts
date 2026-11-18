@@ -72,6 +72,14 @@ const BUILTINS: Record<string, Record<LangId, Tpl>> = {
   showturtle: turtleFn('showturtle', 'showTurtle'),
   setpencolor: turtleFn('pencolor', 'setPenColor'),
   setbackgroundcolor: turtleFn('bgcolor', 'setBackgroundColor'),
+  setpenwidth: turtleFn('pensize', 'setPenWidth'),
+  penwidth: turtleFn('pensize', 'setPenWidth'),
+  home: turtleFn('home', 'home'),
+  setheading: turtleFn('setheading', 'setHeading'),
+  seth: turtleFn('setheading', 'setHeading'),
+  circle: turtleFn('circle', 'circle'),
+  arc: turtleFn('circle', 'arc'),
+  writeturtle: turtleFn('write', 'writeTurtle'),
 };
 
 function turtleFn(pyName: string, javaName: string): Record<LangId, Tpl> {
@@ -94,6 +102,8 @@ const TURTLE_IMPORTS: Record<string, string> = {
   penup: 'turtle', pendown: 'turtle', gotoxy: 'turtle', gotox: 'turtle', gotoy: 'turtle',
   clear: 'turtle', hideturtle: 'turtle', showturtle: 'turtle',
   setpencolor: 'turtle', setbackgroundcolor: 'turtle',
+  setpenwidth: 'turtle', penwidth: 'turtle', home: 'turtle', setheading: 'turtle', seth: 'turtle',
+  circle: 'turtle', arc: 'turtle', writeturtle: 'turtle',
 };
 
 const IMPORTS: Partial<Record<LangId, Record<string, string>>> = {

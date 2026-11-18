@@ -44,6 +44,30 @@ describe('P2-04, P2-05, P2-08, P2-09: Executor, built-ins, multi-diagram pool, r
     expect(res.turtle.segments.length).toBe(15); // 4^2 - 1 segments for level-2 Hilbert curve
   });
 
+  it('supports extended Turtleizer routines (setPenWidth, circle, writeTurtle, home)', () => {
+    let d = createDiagram('program');
+    d = insertAt(
+      d,
+      { seq: { owner: 'root' }, index: 0 },
+      createElement('instruction', [
+        'setPenWidth(3.5)',
+        'setPenColor("blue")',
+        'forward(50)',
+        'circle(20, 180)',
+        'writeTurtle("Peak")',
+        'home()',
+      ]),
+    );
+    const res = runToEnd(d);
+    expect(res.turtle.used).toBe(true);
+    expect(res.turtle.penWidth).toBe(3.5);
+    expect(res.turtle.segments[0].width).toBe(3.5);
+    expect(res.turtle.labels).toEqual([{ x: res.turtle.labels[0].x, y: res.turtle.labels[0].y, text: 'Peak', color: '#2563eb' }]);
+    expect(res.turtle.x).toBe(res.turtle.homeX);
+    expect(res.turtle.y).toBe(res.turtle.homeY);
+    expect(res.turtle.orientation).toBe(0);
+  });
+
   it('evaluates built-ins, conversions (#530), typed declarations (#408), records, and subroutines (P2-08)', () => {
     let sub = createDiagram('sub');
     sub = { ...sub, text: ['square(x: int): int'] };

@@ -7,6 +7,8 @@ import { DEFAULT_LANG, ensureLocale, normalizeLang, type Lang } from '../i18n';
 
 export type Theme = 'system' | 'light' | 'dark';
 export type PanelTab = 'code' | 'index';
+export type PanelPosition = 'right' | 'left';
+export type ExecPosition = 'bottom' | 'top' | 'left' | 'right';
 
 export interface Prefs {
   lang: Lang;
@@ -20,10 +22,18 @@ export interface Prefs {
   switchTextComments: boolean;
   commentsPlusText: boolean;
   analyserWarnings: boolean;
-  // side panel (Arranger index / Code preview)
+  // side panel (Arranger index / Code preview) & Executor layout
   panelOpen: boolean;
   panelTab: PanelTab;
   panelWidth: number;
+  panelPosition: PanelPosition;
+  execPosition: ExecPosition;
+  execHeight: number;
+  execWidth: number;
+  turtleWidth: number;
+  turtleHeight: number;
+  turtleDocked: boolean;
+  turtleGrid: boolean;
   // code export
   codeLang: LangId;
   involveSubroutines: boolean;
@@ -58,6 +68,14 @@ export const DEFAULT_PREFS: Prefs = {
   panelOpen: true,
   panelTab: 'code',
   panelWidth: 380,
+  panelPosition: 'right',
+  execPosition: 'bottom',
+  execHeight: 220,
+  execWidth: 380,
+  turtleWidth: 420,
+  turtleHeight: 360,
+  turtleDocked: false,
+  turtleGrid: true,
   codeLang: 'python',
   involveSubroutines: true,
   defaultKeywords: { ...DEFAULT_KEYWORDS },

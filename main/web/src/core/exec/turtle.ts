@@ -7,6 +7,14 @@ export interface TurtleSegment {
   x2: number;
   y2: number;
   color: string;
+  width: number;
+}
+
+export interface TurtleLabel {
+  x: number;
+  y: number;
+  text: string;
+  color: string;
 }
 
 export interface TurtleState {
@@ -19,8 +27,10 @@ export interface TurtleState {
   penDown: boolean;
   visible: boolean;
   penColor: string;
+  penWidth: number;
   bgColor: string;
   segments: TurtleSegment[];
+  labels: TurtleLabel[];
   used: boolean;
 }
 
@@ -34,8 +44,10 @@ export function createTurtleState(homeX = 250, homeY = 250): TurtleState {
     penDown: true,
     visible: true,
     penColor: '#000000',
+    penWidth: 1.8,
     bgColor: '#ffffff',
     segments: [],
+    labels: [],
     used: false,
   };
 }
@@ -51,6 +63,8 @@ const COLOR_MAP: Record<string, string> = {
   magenta: '#d946ef',
   orange: '#f97316',
   pink: '#ec4899',
+  purple: '#9333ea',
+  brown: '#92400e',
   gray: '#6b7280',
   grey: '#6b7280',
 };
@@ -73,7 +87,9 @@ function resolveColor(arg: unknown, fallback: string): string {
 
 const TURTLE_NAMES = new Set([
   'forward', 'backward', 'fd', 'bk', 'left', 'right', 'rl', 'rr',
-  'penup', 'pendown', 'up', 'down', 'gotoxy', 'gotox', 'gotoy',
+  'penup', 'pendown', 'up', 'down', 'gotoxy', 'gotox', 'gotoy', 'home',
+  'setheading', 'seth', 'setpenwidth', 'penwidth', 'circle', 'arc',
+  'writeturtle', 'turtlewrite',
   'hideturtle', 'showturtle', 'clear', 'setpencolor', 'setbackgroundcolor', 'setbackground',
   'getorientation', 'getx', 'gety',
 ]);
@@ -115,6 +131,7 @@ export function execTurtleRoutine(
         x2,
         y2,
         color: colorOverride !== undefined ? resolveColor(colorOverride, state.penColor) : state.penColor,
+        width: state.penWidth,
       });
     }
   };
@@ -140,6 +157,10 @@ export function execTurtleRoutine(
     case 'rl':
       state.orientation = ((state.orientation - num(args[0])) % 360 + 360) % 360;
       return { handled: true, result: null };
+    case 'setheading':
+    case 'seth':
+      state.orientation = ((num(args[0]) % 360) + 360) % 360;
+      return { handled: true, result: null };
     case 'penup':
     case 'up':
       state.penDown = false;
@@ -158,6 +179,49 @@ export function execTurtleRoutine(
     case 'gotoy':
       state.y = Math.round(num(args[0], state.y));
       return { handled: true, result: null };
+    case 'home':
+      if (state.penDown && (state.x !== state.homeX || state.y !== state.homeY)) {
+        state.segments.push({
+          x1: state.x,
+          y1: state.y,
+          x2: state.homeX,
+          y2: state.homeY,
+          color: state.penColor,
+          width: state.penWidth,
+        });
+      }
+      state.x = state.homeX;
+      state.y = state.homeY;
+      state.orientation = 0;
+      return { handled: true, result: null };
+    case 'setpenwidth':
+    case 'penwidth':
+      state.penWidth = Math.max(0.5, Math.min(32, num(args[0], 1.8)));
+      return { handled: true, result: null };
+    case 'circle':
+    case 'arc': {
+      const r = num(args[0], 50);
+      const extent = args[1] !== undefined ? num(args[1], 360) : 360;
+      const steps = Math.max(12, Math.min(72, Math.round(Math.abs(extent) / 5)));
+      const stepAngle = extent / steps;
+      const stepLen = (2 * Math.PI * Math.abs(r) * (Math.abs(extent) / 360)) / steps;
+      const sign = r >= 0 ? 1 : -1;
+      for (let i = 0; i < steps; i++) {
+        state.orientation = ((state.orientation + sign * (stepAngle / 2)) % 360 + 360) % 360;
+        move(stepLen, false);
+        state.orientation = ((state.orientation + sign * (stepAngle / 2)) % 360 + 360) % 360;
+      }
+      return { handled: true, result: null };
+    }
+    case 'writeturtle':
+    case 'turtlewrite':
+      state.labels.push({
+        x: state.x,
+        y: state.y,
+        text: String(args[0] ?? ''),
+        color: state.penColor,
+      });
+      return { handled: true, result: null };
     case 'hideturtle':
       state.visible = false;
       return { handled: true, result: null };
@@ -166,6 +230,7 @@ export function execTurtleRoutine(
       return { handled: true, result: null };
     case 'clear':
       state.segments = [];
+      state.labels = [];
       return { handled: true, result: null };
     case 'setpencolor':
       if (args.length >= 3) state.penColor = rgbHex(num(args[0]), num(args[1]), num(args[2]));
@@ -187,24 +252,40 @@ export function execTurtleRoutine(
   }
 }
 
-/** Export the current Turtleizer drawing as standalone SVG markup. */
-export function turtleToSvg(state: TurtleState): string {
-  const xs = [state.homeX, state.x, ...state.segments.flatMap((s) => [s.x1, s.x2])];
-  const ys = [state.homeY, state.y, ...state.segments.flatMap((s) => [s.y1, s.y2])];
+export function turtleBounds(state: TurtleState): { minX: number; minY: number; vw: number; vh: number } {
+  const xs = [state.homeX, state.x, ...state.segments.flatMap((s) => [s.x1, s.x2]), ...state.labels.map((l) => l.x)];
+  const ys = [state.homeY, state.y, ...state.segments.flatMap((s) => [s.y1, s.y2]), ...state.labels.map((l) => l.y)];
   const minX = Math.floor(Math.min(0, ...xs) - 24);
   const minY = Math.floor(Math.min(0, ...ys) - 24);
   const maxX = Math.ceil(Math.max(500, ...xs) + 24);
   const maxY = Math.ceil(Math.max(500, ...ys) + 24);
-  const w = Math.max(100, maxX - minX);
-  const h = Math.max(100, maxY - minY);
+  return {
+    minX,
+    minY,
+    vw: Math.max(200, maxX - minX),
+    vh: Math.max(200, maxY - minY),
+  };
+}
+
+function escXml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** Export the current Turtleizer drawing as standalone SVG markup. */
+export function turtleToSvg(state: TurtleState): string {
+  const { minX, minY, vw: w, vh: h } = turtleBounds(state);
   const lines = state.segments.map(
-    (s) => `<line x1="${s.x1.toFixed(1)}" y1="${s.y1.toFixed(1)}" x2="${s.x2.toFixed(1)}" y2="${s.y2.toFixed(1)}" stroke="${s.color}" stroke-width="1.6" stroke-linecap="round"/>`,
+    (s) => `<line x1="${s.x1.toFixed(1)}" y1="${s.y1.toFixed(1)}" x2="${s.x2.toFixed(1)}" y2="${s.y2.toFixed(1)}" stroke="${s.color}" stroke-width="${(s.width ?? 1.8).toFixed(1)}" stroke-linecap="round"/>`,
+  );
+  const texts = state.labels.map(
+    (l) => `<text x="${l.x.toFixed(1)}" y="${l.y.toFixed(1)}" fill="${l.color}" font-family="sans-serif" font-size="12">${escXml(l.text)}</text>`,
   );
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${minX} ${minY} ${w} ${h}">`,
     `<rect x="${minX}" y="${minY}" width="${w}" height="${h}" fill="${state.bgColor}"/>`,
     ...lines,
+    ...texts,
     '</svg>',
   ].join('\n');
 }
