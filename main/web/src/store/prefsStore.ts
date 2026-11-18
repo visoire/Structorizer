@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import type { LangId } from '../core/gen/generators';
 import { DEFAULT_KEYWORDS, type Keywords } from '../core/model';
-import { detectLang, type Lang } from '../i18n';
+import { DEFAULT_LANG, ensureLocale, normalizeLang, type Lang } from '../i18n';
 
 export type Theme = 'system' | 'light' | 'dark';
 export type PanelTab = 'code' | 'index';
@@ -71,12 +71,17 @@ export const DEFAULT_PREFS: Prefs = {
 };
 
 function load(): Prefs {
-  const base = { ...DEFAULT_PREFS, lang: detectLang() };
+  const base = { ...DEFAULT_PREFS, lang: DEFAULT_LANG };
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return base;
     const p = JSON.parse(raw) as Partial<Prefs>;
-    return { ...base, ...p, defaultKeywords: { ...DEFAULT_KEYWORDS, ...(p.defaultKeywords ?? {}) } };
+    return {
+      ...base,
+      ...p,
+      lang: p.lang !== undefined ? normalizeLang(p.lang) : DEFAULT_LANG,
+      defaultKeywords: { ...DEFAULT_KEYWORDS, ...(p.defaultKeywords ?? {}) },
+    };
   } catch {
     return base;
   }
@@ -93,14 +98,28 @@ interface PrefsState extends Prefs {
 
 export const usePrefs = create<PrefsState>((set, get) => ({
   ...load(),
-  set: (p) => set(p),
+  set: (p) => {
+    if (p.lang !== undefined) {
+      const lang = normalizeLang(p.lang);
+      void ensureLocale(lang);
+      set({ ...p, lang });
+      return;
+    }
+    set(p);
+  },
   toggle: (k) => set({ [k]: !get()[k] } as Partial<Prefs>),
   reset: () => set({ ...DEFAULT_PREFS, lang: get().lang }),
   importJson: (json) => {
     const p = JSON.parse(json) as Partial<Prefs>;
     const clean: Partial<Prefs> = {};
     for (const k of Object.keys(DEFAULT_PREFS) as (keyof Prefs)[]) {
-      if (k in p && typeof p[k] === typeof DEFAULT_PREFS[k]) (clean as Record<string, unknown>)[k] = p[k];
+      if (k === 'lang' && 'lang' in p && p.lang !== undefined) {
+        const lang = normalizeLang(p.lang);
+        void ensureLocale(lang);
+        clean.lang = lang;
+      } else if (k in p && typeof p[k] === typeof DEFAULT_PREFS[k]) {
+        (clean as Record<string, unknown>)[k] = p[k];
+      }
     }
     set(clean);
   },

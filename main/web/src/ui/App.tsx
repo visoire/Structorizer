@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { findById, STRUCTURED_KINDS, type ElementKind } from '../core/model';
 import { parseSignature } from '../core/lang/analyze';
-import { translator, type TKey } from '../i18n';
+import { htmlLang, useTranslator, type TKey } from '../i18n';
 import { isDirty, useStore } from '../store/diagramStore';
 import { resolvedTheme, usePrefs } from '../store/prefsStore';
 import appIcon from '../assets/app-icon.png';
@@ -37,7 +37,7 @@ function ToolButton({ label, onClick, disabled, children, pressed }: {
 export function App() {
   const s = useStore();
   const p = usePrefs();
-  const t = translator(p.lang);
+  const t = useTranslator(p.lang);
   const dirty = isDirty(s);
   const [storageOk, setStorageOk] = useState(true);
   const [restored, setRestored] = useState(false);
@@ -53,7 +53,7 @@ export function App() {
     mq.addEventListener('change', apply);
     return () => mq.removeEventListener('change', apply);
   }, [p.theme]);
-  useEffect(() => { document.documentElement.lang = p.lang; }, [p.lang]);
+  useEffect(() => { document.documentElement.lang = htmlLang(p.lang); }, [p.lang]);
   useEffect(() => { applyUiFont(); }, [p.uiFont, p.customUiFont]);
 
   // ---------- restore + autosave of all open diagrams (local only)

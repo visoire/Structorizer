@@ -10,6 +10,19 @@ build number. Desktop issue numbers refer to
 
 ## [Unreleased]
 
+## [3.32.35-web.4] – 2026-11-18 (corresponds to Structorizer 3.32-35)
+
+Full desktop localization (13 languages, English default), C / C# / Pascal code export, and repository cleanup.
+
+### Added
+- **All 13 UI languages of Structorizer Desktop** (`en`, `de`, `fr`, `nl`, `lu`, `es`, `pt-br`, `it`, `zh-cn`, `zh-tw`, `cs`, `ru`, `pl`) in `Preferences > Language` and the Preferences dialog.
+- **Lazy-loaded i18n bundles**: English is bundled eagerly as the default/fallback language while the other 12 dictionaries split into tiny on-demand JS chunks in the web build and inline seamlessly into the single-file build.
+- **Code export for C, C#, and Pascal** in addition to Python, Java, JavaScript, C++, PHP, and Bash (including expression/builtin translations, `Code preview`, `File > Export > Code`, and MCP `export-code`).
+
+### Changed
+- **Main UI language**: English (`en`) is now always the default UI language instead of overriding to German via `navigator.language`.
+- **Workspace cleanup**: removed local reference folders and duplicate root PDFs, and removed obsolete ignore rules from `.gitignore`.
+
 ## [3.32.35-web.3] – 2026-11-18 (corresponds to Structorizer 3.32-35)
 
 New look in the style of the Craft apps (GridCraft, WordCraft), custom Structorizer icons,

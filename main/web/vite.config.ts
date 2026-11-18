@@ -52,7 +52,9 @@ function singleFilePlugin(): Plugin {
         if (f.type === 'chunk' && name.endsWith('.js')) { js += f.code; delete bundle[name]; }
         else if (f.type === 'asset' && name.endsWith('.css')) { css += String(f.source); delete bundle[name]; }
       }
-      js = js.replace(/<\/script/gi, '<\\/script');
+      // Vite leaves __VITE_PRELOAD__ unreplaced when codeSplitting: false inlines dynamic imports;
+      // void 0 tells Vite's preload helper there are no external chunk URLs to preload.
+      js = js.replace(/<\/script/gi, '<\\/script').replace(/\b__VITE_PRELOAD__\b/g, 'void 0');
       const hash = createHash('sha256').update(js).digest('base64');
       // function replacers: the inlined code contains `$&` and similar sequences that a
       // replacement string would expand
@@ -92,8 +94,8 @@ export default defineConfig(({ mode }) => {
           sourcemap: false,
           assetsInlineLimit: 100_000_000,
           cssCodeSplit: false,
-          modulePreload: false,
-          rollupOptions: { input: 'index.html', output: { inlineDynamicImports: true } },
+          modulePreload: { polyfill: false },
+          rollupOptions: { input: 'index.html', output: { codeSplitting: false } },
         }
       : {
           outDir: 'dist',

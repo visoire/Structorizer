@@ -5,7 +5,7 @@ import { createLayoutEngine, hitTest, nearestGap, type Gap, type Hit, type Scene
 import { isInside, sameRef } from '../core/model/tree';
 import { sceneToSvg } from '../core/render/svg';
 import { useStore, type Selection } from '../store/diagramStore';
-import { translator } from '../i18n';
+import { useTranslator } from '../i18n';
 import { resolvedTheme, usePrefs } from '../store/prefsStore';
 import { measure, viewLayoutOptions } from './exporters';
 
@@ -43,7 +43,7 @@ export function DiagramView() {
   const selection = useStore((s) => s.selection);
   const zoom = useStore((s) => s.zoom);
   const prefs = usePrefs();
-  const t = translator(prefs.lang);
+  const t = useTranslator(prefs.lang);
   const optKey = [prefs.cOperators, prefs.highlightVars, prefs.showComments, prefs.switchTextComments, prefs.commentsPlusText, prefs.diagramFont, prefs.customDiagramFont, prefs.diagramFontSize].join();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const engine = useMemo(() => createLayoutEngine(measure(), viewLayoutOptions()), [optKey]);

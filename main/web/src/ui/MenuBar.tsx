@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { findById, slotsOf, type ElementKind } from '../core/model';
 import { LANGUAGES } from '../core/gen/generators';
 import { EXAMPLES } from '../examples';
-import { translator, type TKey } from '../i18n';
+import { LANGS, useTranslator, type TKey } from '../i18n';
 import { useStore } from '../store/diagramStore';
 import { usePrefs } from '../store/prefsStore';
 import { actions } from './actions';
@@ -36,7 +36,7 @@ export const INSERT_KEYS: [ElementKind, string, string][] = [
 export function useMenus(): Menu[] {
   const s = useStore();
   const p = usePrefs();
-  const t = translator(p.lang);
+  const t = useTranslator(p.lang);
   const sel = s.selection;
   const el = sel?.t === 'el' ? findById(s.diagram, sel.id)?.el ?? null : null;
   const structured = !!el && slotsOf(el).length > 0;
@@ -166,10 +166,9 @@ export function useMenus(): Menu[] {
       label: t('m.prefs'),
       items: [
         { label: t('prefsDialog'), action: actions.prefs },
-        { label: t('language'), items: [
-          { label: 'Deutsch', checked: p.lang === 'de', action: () => p.set({ lang: 'de' }) },
-          { label: 'English', checked: p.lang === 'en', action: () => p.set({ lang: 'en' }) },
-        ] },
+        { label: t('language'), items: LANGS.map((l) => ({
+          label: l.name, checked: p.lang === l.id, action: () => p.set({ lang: l.id }),
+        })) },
         { label: t('theme'), items: (['system', 'light', 'dark'] as const).map((th) => ({
           label: t(th === 'system' ? 'themeSystem' : th === 'light' ? 'themeLight' : 'themeDark'), checked: p.theme === th, action: () => p.set({ theme: th }),
         })) },
@@ -238,7 +237,7 @@ function MenuList({ items, close, depth = 0 }: { items: MenuItem[]; close: () =>
 export function MenuBar() {
   const menus = useMenus();
   const lang = usePrefs((p) => p.lang);
-  const t = translator(lang);
+  const t = useTranslator(lang);
   const [open, setOpen] = useState<number | null>(null);
   const [sheet, setSheet] = useState(false);
   const ref = useRef<HTMLDivElement>(null);

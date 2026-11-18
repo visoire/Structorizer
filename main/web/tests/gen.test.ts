@@ -58,6 +58,11 @@ describe('expression translation', () => {
     expect(ex('{1, 2, 3}', 'java')).toBe('new int[]{1, 2, 3}');
     expect(ex("'abc'", 'java')).toBe('"abc"');
     expect(ex('"a<-b"', 'python')).toBe('"a<-b"');
+    expect(ex('a = b and not c', 'c')).toBe('a == b && !c');
+    expect(ex('a = b and not c', 'pascal')).toBe('a = b and not c');
+    expect(ex('"hello"', 'pascal')).toBe("'hello'");
+    expect(ex('{1, 2, 3}', 'csharp')).toBe('new int[]{1, 2, 3}');
+    expect(ex('sqrt(x)', 'csharp')).toBe('Math.Sqrt(x)');
   });
 });
 
@@ -104,8 +109,36 @@ describe('code generation', () => {
     expect(py).toContain('return result');
     const java = generateCode(sub, 'java').code;
     expect(java).toContain('public static int fact(int n) {');
+    const c = generateCode(sub, 'c').code;
+    expect(c).toContain('int fact(int n) {');
+    expect(c).toContain('return result;');
+    const cs = generateCode(sub, 'csharp').code;
+    expect(cs).toContain('public static int fact(int n) {');
+    const pas = generateCode(sub, 'pascal').code;
+    expect(pas).toContain('function fact(n: Integer): Integer;');
+    expect(pas).toContain('fact := result;');
     const bash = generateCode(sub, 'bash').code;
     expect(bash).toContain('fact() {');
+  });
+
+  it('produces valid C, C#, and Pascal for all elements', () => {
+    const c = generateCode(d, 'c').code;
+    expect(c).toContain('#include <stdio.h>');
+    expect(c).toContain('int main(void) {');
+    expect(c).toContain('printf(');
+
+    const cs = generateCode(d, 'csharp').code;
+    expect(cs).toContain('using System;');
+    expect(cs).toContain('public class AllElements {');
+    expect(cs).toContain('public static void Main(string[] args) {');
+    expect(cs).toContain('Console.WriteLine(');
+
+    const pas = generateCode(d, 'pascal').code;
+    expect(pas).toContain('program AllElements;');
+    expect(pas).toContain('uses SysUtils;');
+    expect(pas).toContain('repeat');
+    expect(pas).toContain('until n >= 3;');
+    expect(pas).toContain('end.');
   });
 
   it('includes called subroutines from the pool', () => {

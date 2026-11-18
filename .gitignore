@@ -12,11 +12,7 @@ main/web/public/docs/*.pdf
 # original desktop sources and private notes (not part of this repository)
 sourcecode/
 
-# local reference material and stray exports in the repository root
-/gridcraft-*/
-/gridcraft-*.zip
-/wordcraft-*/
-/wordcraft-*.zip
+# stray exports and private notes in the repository
 /*.pdf
 info/grok.txt
 

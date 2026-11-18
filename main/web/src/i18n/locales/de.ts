@@ -1,4 +1,4 @@
-import type { Dict } from './en';
+import type { Dict } from '../en';
 
 export const de: Dict = {
   appName: 'Structorizer Web',

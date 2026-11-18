@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { generateCode, LANGUAGES, type LangId } from '../core/gen/generators';
 import { parseSignature } from '../core/lang/analyze';
-import { translator } from '../i18n';
+import { useTranslator } from '../i18n';
 import { useStore } from '../store/diagramStore';
 import { usePrefs } from '../store/prefsStore';
 import { actions } from './actions';
@@ -14,7 +14,7 @@ function CodePreview() {
   const docs = useStore((s) => s.docs);
   const selection = useStore((s) => s.selection);
   const p = usePrefs();
-  const t = translator(p.lang);
+  const t = useTranslator(p.lang);
   const [copied, setCopied] = useState(false);
   const pool = useMemo(() => [diagram, ...docs.map((d) => d.diagram)], [diagram, docs]);
   const res = useMemo(
@@ -71,7 +71,7 @@ function CodePreview() {
 function ArrangerIndex() {
   const s = useStore();
   const lang = usePrefs((p) => p.lang);
-  const t = translator(lang);
+  const t = useTranslator(lang);
   const docs = s.allDocs();
   const groups: { label: string; type: 'program' | 'sub' | 'includable' }[] = [
     { label: t('mainPrograms'), type: 'program' },
@@ -122,7 +122,7 @@ function ArrangerIndex() {
 
 export function SidePanel() {
   const p = usePrefs();
-  const t = translator(p.lang);
+  const t = useTranslator(p.lang);
   const drag = useRef<{ x: number; w: number } | null>(null);
 
   if (!p.panelOpen) return null;

@@ -2,7 +2,7 @@
 // Element editor and diagram (root) editor. Esc closes every dialog (desktop issue #401).
 import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_COLORS, findById, walk, type DiagramType, type Element, type ElementKind } from '../core/model';
-import { translator, type TKey } from '../i18n';
+import { useTranslator, type TKey } from '../i18n';
 import { useStore } from '../store/diagramStore';
 import { usePrefs } from '../store/prefsStore';
 
@@ -71,7 +71,7 @@ export function ElementEditor() {
 
 function ElementForm({ el, isNew }: { el: Element; isNew: boolean }) {
   const lang = usePrefs((p) => p.lang);
-  const t = translator(lang);
+  const t = useTranslator(lang);
   const [text, setText] = useState(() => (el.kind === 'parallel' ? String(el.branches.length) : fromLines(el.text)));
   const [comment, setComment] = useState(() => fromLines(el.comment));
   const [color, setColor] = useState(el.color);
@@ -125,7 +125,7 @@ export function DiagramEditor() {
 function DiagramForm() {
   const diagram = useStore((s) => s.diagram);
   const lang = usePrefs((p) => p.lang);
-  const t = translator(lang);
+  const t = useTranslator(lang);
   const [text, setText] = useState(() => fromLines(diagram.text));
   const [comment, setComment] = useState(() => fromLines(diagram.comment));
   const [type, setType] = useState<DiagramType>(diagram.diagramType);

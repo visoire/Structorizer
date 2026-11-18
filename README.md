@@ -14,7 +14,7 @@ current browser, including Safari on iPad (desktop issue
   resources. Both builds enforce this with a Content Security Policy (`connect-src 'none'`).
 - **Compatible**: reads and writes the `.nsd` files of Structorizer Desktop 3.32.
 
-Version **3.32-35** (web build `3.32.35-web.3`) · [Changelog](CHANGELOG.md) ·
+Version **3.32-35** (web build `3.32.35-web.4`) · [Changelog](CHANGELOG.md) ·
 [Plan](info/plan.md) · [Roadmap](info/04-roadmap.md)
 
 <p align="center">
@@ -29,7 +29,7 @@ Version **3.32-35** (web build `3.32.35-web.3`) · [Changelog](CHANGELOG.md) ·
 
 | | Web version | Single-file version |
 |---|---|---|
-| What | `index.html` + `assets/` + documentation page with the user guide | one self-contained `index.html` (about 400 KB) |
+| What | `index.html` + `assets/` + documentation page with the user guide | one self-contained `index.html` (about 530 KB) |
 | For | web servers (school server, XAMPP, GitHub Pages, Nextcloud) | upload anywhere, USB stick, course pages, e-mail |
 | Download | `structorizer-web-<version>.zip` | `structorizer-<version>.html` or `structorizer-single-<version>.zip` |
 
@@ -41,10 +41,10 @@ Both are in the [releases](https://github.com/visoire/Structorizer/releases). Ho
 - Menus like Structorizer Desktop 3.32 (File, Edit, View, Diagram, Preferences, Debug, Help) and its key bindings
 - All 11 element types, programs, subroutines and includables, several diagrams open at once
 - Side panel with **Code preview** (selection ⇄ code lines) and **Arranger index**
-- Code export: Python, Java, JavaScript, C++, PHP, Bash
+- Code export: Python, Java, JavaScript, C, C++, C#, Pascal, PHP, Bash
 - Pictures: PNG, PNG (multiple), EMF, PDF, SVG; print; copy as picture
 - Find/replace, transmute, outsource, collapse, disable, undo/redo, drag and drop, context menu
-- Preferences: language (German, English), light/dark/system, view options, parser keywords,
+- Preferences: 13 UI languages (English default, plus German, French, Dutch, Luxembourgish, Spanish, Portuguese (Brazil), Italian, Simplified & Traditional Chinese, Czech, Russian, Polish — loaded lazily per chunk), light/dark/system, view options, parser keywords,
   **fonts** for the interface and for diagrams/exports (any installed font), export colours
 - Design in the style of the Craft apps (GridCraft, WordCraft), touch friendly
 - Documentation page with the Structorizer User Guide (PDF)

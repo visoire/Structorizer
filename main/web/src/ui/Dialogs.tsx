@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { LANGUAGES, type LangId } from '../core/gen/generators';
 import { findById, KEYWORD_KEYS, updateElement, walk, type Element, type Keywords } from '../core/model';
-import { translator, type TKey } from '../i18n';
+import { LANGS, useTranslator, type Lang, type TKey } from '../i18n';
 import { useStore } from '../store/diagramStore';
 import { usePrefs, type Theme } from '../store/prefsStore';
 import appIcon from '../assets/app-icon.png';
@@ -19,7 +19,7 @@ const REPO_URL = 'https://github.com/visoire/Structorizer';
 function PrefsDialog() {
   const p = usePrefs();
   const s = useStore();
-  const t = translator(p.lang);
+  const t = useTranslator(p.lang);
   const [tab, setTab] = useState<'general' | 'fonts' | 'view' | 'export' | 'parser' | 'data'>('general');
   const [kw, setKw] = useState<Keywords>({ ...s.diagram.keywords });
   const close = () => s.setDialog(null);
@@ -41,8 +41,8 @@ function PrefsDialog() {
       {tab === 'general' && (
         <div className="form-grid">
           <label className="field"><span>{t('language')}</span>
-            <select value={p.lang} onChange={(e) => p.set({ lang: e.target.value as 'de' | 'en' })}>
-              <option value="de">Deutsch</option><option value="en">English</option>
+            <select value={p.lang} onChange={(e) => p.set({ lang: e.target.value as Lang })}>
+              {LANGS.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select></label>
           <fieldset className="radio-row"><legend>{t('theme')}</legend>
             {(['system', 'light', 'dark'] as Theme[]).map((th) => (
@@ -109,7 +109,7 @@ function PrefsDialog() {
 
 function FontsTab() {
   const p = usePrefs();
-  const t = translator(p.lang);
+  const t = useTranslator(p.lang);
   const FontSelect = ({ value, custom, onFont, onCustom, label }: { value: FontId; custom: string; onFont: (f: FontId) => void; onCustom: (s: string) => void; label: TKey }) => (
     <div className="form-grid">
       <label className="field"><span>{t(label)}</span>
@@ -129,7 +129,7 @@ function FontsTab() {
       <label className="field"><span>{t('fontSize')}: {p.diagramFontSize} px</span>
         <input type="range" min={10} max={22} step={1} value={p.diagramFontSize} onChange={(e) => p.set({ diagramFontSize: +e.target.value })} /></label>
       <div className="font-preview" style={{ fontFamily: fontStack(p.diagramFont, p.customDiagramFont), fontSize: p.diagramFontSize }}>
-        x {'←'} (a + b) * 2 &nbsp; OUTPUT "Ergebnis: ", x &nbsp; while (i {'≤'} 10)
+        x {'←'} (a + b) * 2 &nbsp; OUTPUT "Result: ", x &nbsp; while (i {'≤'} 10)
       </div>
       <p className="hint">{t('customFontHint')}</p>
       <h3>{t('exportLook')}</h3>
@@ -143,7 +143,7 @@ function FontsTab() {
 
 function FindDialog() {
   const s = useStore();
-  const t = translator(usePrefs((p) => p.lang));
+  const t = useTranslator(usePrefs((p) => p.lang));
   const [q, setQ] = useState('');
   const [rep, setRep] = useState('');
   const [caseSens, setCase] = useState(false);
@@ -215,7 +215,7 @@ function FindDialog() {
 
 function PngMultiDialog() {
   const s = useStore();
-  const t = translator(usePrefs((p) => p.lang));
+  const t = useTranslator(usePrefs((p) => p.lang));
   const [cols, setCols] = useState(1);
   const [rows, setRows] = useState(2);
   const clamp = (v: number) => Math.min(10, Math.max(1, Math.round(v) || 1));
@@ -235,7 +235,7 @@ function PngMultiDialog() {
 
 function KeysDialog() {
   const s = useStore();
-  const t = translator(usePrefs((p) => p.lang));
+  const t = useTranslator(usePrefs((p) => p.lang));
   const menus = useMenus();
   const rows: [string, string][] = [];
   const visit = (items: ReturnType<typeof useMenus>[number]['items'], prefix: string) => {
@@ -266,7 +266,7 @@ function KeysDialog() {
 
 function AboutDialog() {
   const s = useStore();
-  const t = translator(usePrefs((p) => p.lang));
+  const t = useTranslator(usePrefs((p) => p.lang));
   return (
     <Modal title={`${t('appName')} ${STRUCTORIZER_VERSION}`} onClose={() => s.setDialog(null)} cancelLabel={t('close')}>
       <div className="about-head">
@@ -298,7 +298,7 @@ export function Dialogs() {
 
 export function ContextMenu() {
   const s = useStore();
-  const t = translator(usePrefs((p) => p.lang));
+  const t = useTranslator(usePrefs((p) => p.lang));
   const pos = s.contextMenu;
   if (!pos) return null;
   const el = s.selection?.t === 'el' ? findById(s.diagram, s.selection.id)?.el ?? null : null;

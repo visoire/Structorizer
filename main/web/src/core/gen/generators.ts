@@ -17,7 +17,10 @@ export const LANGUAGES: LangInfo[] = [
   { id: 'python', name: 'Python', ext: 'py' },
   { id: 'java', name: 'Java', ext: 'java' },
   { id: 'javascript', name: 'JavaScript', ext: 'js' },
+  { id: 'c', name: 'C', ext: 'c' },
   { id: 'cpp', name: 'C++', ext: 'cpp' },
+  { id: 'csharp', name: 'C#', ext: 'cs' },
+  { id: 'pascal', name: 'Pascal', ext: 'pas' },
   { id: 'php', name: 'PHP', ext: 'php' },
   { id: 'bash', name: 'Bash', ext: 'sh' },
 ];
@@ -660,6 +663,144 @@ class JsGen extends CLikeGen {
   }
 }
 
+// ------------------------------------------------------------------ C
+
+const C_TYPES: Record<BaseType, string> = { int: 'int', double: 'double', string: 'const char*', char: 'char', bool: 'bool', unknown: 'double' };
+const C_INIT: Record<BaseType, string> = { int: ' = 0', double: ' = 0.0', string: ' = ""', char: " = ' '", bool: ' = false', unknown: ' = 0' };
+
+class CGen extends CLikeGen {
+  protected fork() { return new CGen(this.lang, this.opts); }
+  private ct(t: VarType) {
+    if (t.base === 'bool') this.ctx.imports.add('stdbool.h');
+    return `${C_TYPES[t.base]}${t.array ? '*' : ''}`;
+  }
+
+  protected fileHeader(main: Diagram) {
+    this.headerComments(main);
+    this.line();
+    const inc = new Set(['stdio.h', ...this.ctx.imports]);
+    for (const i of [...inc].sort()) this.line(`#include <${i}>`);
+    this.line();
+  }
+
+  protected routine(d: Diagram, isMain: boolean) {
+    this.setDiagram(d);
+    if (isMain) this.open('int main(void)');
+    else {
+      const ret = this.sig.isFunction ? this.ct(this.sig.result ?? this.vars.get(this.resultVar ?? '') ?? { base: 'unknown', array: false }) : 'void';
+      const params = this.sig.params.length ? this.sig.params.map((p) => `${this.ct(p.type)} ${p.name}${p.type.array ? '' : ''}`).join(', ') : 'void';
+      this.open(`${ret} ${this.sig.name}(${params})`);
+    }
+    for (const [name, t] of this.vars) {
+      if (t.base === 'bool') this.ctx.imports.add('stdbool.h');
+      if (t.array) this.line(`${C_TYPES[t.base]} ${name}[64] = {0};`);
+      else this.line(`${C_TYPES[t.base]} ${name}${C_INIT[t.base]};`);
+    }
+    for (const inc of this.includedDiagrams(d)) {
+      this.comment(`=== included from ${parseSignature(inc).name} ===`);
+      this.body(inc.children);
+    }
+    this.body(d.children);
+    if (!isMain && this.resultVar) this.line(`return ${this.resultVar};`);
+    if (isMain) this.line('return 0;');
+    this.close();
+    this.line();
+  }
+
+  private fmtOf(expr: string): string {
+    const lt = literalType(expr);
+    const id = plainIdent(expr);
+    const base = id ? this.typeOf(id).base : (lt ?? 'unknown');
+    switch (base) {
+      case 'int':
+      case 'bool': return '%d';
+      case 'char': return '%c';
+      case 'string': return '%s';
+      default: return '%g';
+    }
+  }
+
+  protected stmt(s: Stmt) {
+    if (this.commonStmt(s)) return;
+    switch (s.t) {
+      case 'input':
+        if (s.prompt) this.line(`printf("%s", ${this.ex(s.prompt)});`);
+        for (const t of s.targets) {
+          const ty = this.typeOf(t).base;
+          const v = this.ex(t);
+          if (ty === 'int') this.line(`scanf("%d", &${v});`);
+          else if (ty === 'char') this.line(`scanf(" %c", &${v});`);
+          else if (ty === 'string') { this.comment(`Ensure ${v} points to a writable buffer before scanf`); this.line(`scanf("%255s", ${v});`); }
+          else this.line(`scanf("%lf", &${v});`);
+        }
+        return;
+      case 'output': {
+        if (s.exprs.length === 0) { this.line('printf("\\n");'); return; }
+        const fmt = s.exprs.map((e) => this.fmtOf(e)).join('') + '\\n';
+        const args = s.exprs.map((e) => this.ex(e)).join(', ');
+        this.line(`printf("${fmt}", ${args});`);
+        return;
+      }
+      case 'assign': this.line(`${this.ex(s.target)} = ${this.ex(s.expr)};`); return;
+      case 'decl': return;
+      case 'exit': this.ctx.imports.add('stdlib.h'); this.line(`exit(${s.expr ? this.ex(s.expr) : '0'});`); return;
+      case 'throw':
+        this.ctx.imports.add('stdlib.h');
+        this.line(`fprintf(stderr, "%s\\n", ${s.expr ? this.ex(s.expr) : '"error"'});`);
+        this.line('exit(1);');
+        return;
+    }
+  }
+
+  protected genFor(fi: ForInfo, body: Element[]) {
+    if (fi.style === 'COUNTER') {
+      this.counterLoop(fi, this.vars.has(fi.var) ? '' : 'int ');
+      this.body(body);
+      this.close();
+      return;
+    }
+    if (fi.style === 'TRAVERSAL') {
+      const raw = fi.list.trim();
+      const id = plainIdent(raw);
+      if (id) {
+        const ty = C_TYPES[this.typeOf(id).base];
+        this.open(`for (int _i = 0; _i < (int)(sizeof(${id}) / sizeof(${id}[0])); _i++)`);
+        this.line(`${ty} ${fi.var} = ${id}[_i];`);
+        this.body(body);
+        this.close();
+      } else {
+        const elemTy = raw.startsWith('{') && /["']/.test(raw) ? 'const char*' : 'int';
+        this.open('');
+        this.line(`${elemTy} _arr[] = ${this.ex(raw)};`);
+        this.open('for (int _i = 0; _i < (int)(sizeof(_arr) / sizeof(_arr[0])); _i++)');
+        this.line(`${elemTy} ${fi.var} = _arr[_i];`);
+        this.body(body);
+        this.close();
+        this.close();
+      }
+      return;
+    }
+    this.comment(`TODO: ${fi.raw}`);
+    this.open('while (true)');
+    this.ctx.imports.add('stdbool.h');
+    this.body(body);
+    this.close();
+  }
+
+  protected genTry(v: string, t: Element[], c: Element[], f: Element[]) {
+    this.comment('try (C has no exceptions: the try block runs, the catch block is kept as comment)');
+    for (const el of t) this.element(el);
+    const start = this.lines.length;
+    this.comment(`catch (${v}):`);
+    for (const el of c) this.element(el);
+    for (let i = start + 1; i < this.lines.length; i++) {
+      const m = /^(\s*)(.*)$/.exec(this.lines[i].s)!;
+      if (!m[2].startsWith('//')) this.lines[i].s = `${m[1]}// ${m[2]}`;
+    }
+    if (f.length) { this.comment('finally:'); for (const el of f) this.element(el); }
+  }
+}
+
 // ------------------------------------------------------------------ C++
 
 const CPP_TYPES: Record<BaseType, string> = { int: 'int', double: 'double', string: 'std::string', char: 'char', bool: 'bool', unknown: 'double' };
@@ -733,6 +874,349 @@ class CppGen extends CLikeGen {
     if (f.length) { this.comment('finally (C++ has no finally block):'); this.body(f); }
   }
 
+}
+
+// ------------------------------------------------------------------ C#
+
+const CS_TYPES: Record<BaseType, string> = { int: 'int', double: 'double', string: 'string', char: 'char', bool: 'bool', unknown: 'double' };
+const CS_INIT: Record<BaseType, string> = { int: '0', double: '0.0', string: '""', char: "' '", bool: 'false', unknown: '0' };
+
+class CSharpGen extends CLikeGen {
+  protected fork() { return new CSharpGen(this.lang, this.opts); }
+  private ct(t: VarType): string { return CS_TYPES[t.base] + (t.array ? '[]' : ''); }
+
+  protected fileHeader(main: Diagram) {
+    this.headerComments(main);
+    this.line();
+    this.line('using System;');
+    this.line();
+  }
+
+  generate(main: Diagram): GenResult {
+    const className = parseSignature(main).name.replace(/^\w/, (c) => c.toUpperCase());
+    const subs = main.diagramType === 'sub' ? [] : this.calledSubs(main).reverse();
+    const body = this.fork() as CSharpGen;
+    body.level = 1;
+    for (const s of subs) body.routine(s, false);
+    body.routine(main, main.diagramType !== 'sub');
+    this.fileHeader(main);
+    this.line(`public class ${className} {`);
+    if (body.lines.some((l) => l.s.includes('rng.Next('))) {
+      this.level = 1;
+      this.line('private static readonly Random rng = new Random();');
+      this.line();
+      this.level = 0;
+    }
+    this.lines.push(...body.lines);
+    this.line('}');
+    return { code: this.lines.map((l) => l.s).join('\n') + '\n', lines: this.lines, fileName: `${className}.cs`, lang: this.lang };
+  }
+
+  protected routine(d: Diagram, isMain: boolean) {
+    this.setDiagram(d);
+    const sig = this.sig;
+    if (isMain) this.open('public static void Main(string[] args)');
+    else {
+      const ret = sig.isFunction ? this.ct(sig.result ?? this.vars.get(this.resultVar ?? '') ?? { base: 'unknown', array: false }) : 'void';
+      const params = sig.params.map((p) => `${this.ct(p.type)} ${p.name}`).join(', ');
+      this.open(`public static ${ret} ${sig.name}(${params})`);
+    }
+    let guessed = false;
+    for (const [name, t] of this.vars) {
+      if (t.base === 'unknown' && !t.array) guessed = true;
+      this.line(`${this.ct(t)} ${name}${t.array ? ' = null' : ` = ${CS_INIT[t.base]}`};`);
+    }
+    if (guessed) this.comment('TODO: check the types of variables without declaration (guessed as double)');
+    for (const inc of this.includedDiagrams(d)) {
+      this.comment(`=== included from ${parseSignature(inc).name} ===`);
+      this.body(inc.children);
+    }
+    this.body(d.children);
+    if (!isMain && this.resultVar) this.line(`return ${this.resultVar};`);
+    this.close();
+    this.line();
+  }
+
+  protected stmt(s: Stmt) {
+    if (this.commonStmt(s)) return;
+    switch (s.t) {
+      case 'input':
+        if (s.prompt) this.line(`Console.Write(${this.ex(s.prompt)});`);
+        if (s.targets.length === 0) { this.line('Console.ReadLine();'); return; }
+        for (const t of s.targets) {
+          const ty = this.typeOf(t).base;
+          const read = ty === 'int' ? 'int.Parse(Console.ReadLine().Trim())'
+            : ty === 'double' || ty === 'unknown' ? 'double.Parse(Console.ReadLine().Trim())'
+              : ty === 'bool' ? 'bool.Parse(Console.ReadLine().Trim())'
+                : ty === 'char' ? 'Console.ReadLine()[0]' : 'Console.ReadLine()';
+          this.line(`${this.ex(t)} = ${read};`);
+        }
+        return;
+      case 'output': this.line(`Console.WriteLine(${this.outputJoin(s.exprs, ' + ')});`); return;
+      case 'assign': {
+        const t = plainIdent(s.target) ? this.vars.get(s.target.trim()) : undefined;
+        const prev = this.ctx.arrayType;
+        if (t?.array && t.base !== 'unknown') this.ctx.arrayType = CS_TYPES[t.base];
+        this.line(`${this.ex(s.target)} = ${this.ex(s.expr)};`);
+        this.ctx.arrayType = prev;
+        return;
+      }
+      case 'decl': return;
+      case 'exit': this.line(`Environment.Exit(${s.expr ? this.ex(s.expr) : '0'});`); return;
+      case 'throw': this.line(`throw new Exception(Convert.ToString(${s.expr ? this.ex(s.expr) : '""'}));`); return;
+    }
+  }
+
+  protected genFor(fi: ForInfo, body: Element[]) {
+    if (fi.style === 'COUNTER') this.counterLoop(fi, this.vars.has(fi.var) ? '' : 'int ');
+    else if (fi.style === 'TRAVERSAL') this.open(`foreach (var ${fi.var} in ${this.ex(fi.list)})`);
+    else { this.comment(`TODO: ${fi.raw}`); this.open('while (true)'); }
+    this.body(body);
+    this.close();
+  }
+
+  protected genTry(v: string, t: Element[], c: Element[], f: Element[]) {
+    this.open('try'); this.body(t);
+    this.level--; this.line(`} catch (Exception ${v}) {`); this.level++;
+    this.body(c);
+    if (f.length) { this.level--; this.line('} finally {'); this.level++; this.body(f); }
+    this.close();
+  }
+}
+
+// ------------------------------------------------------------------ Pascal
+
+const PAS_TYPES: Record<BaseType, string> = { int: 'Integer', double: 'Real', string: 'String', char: 'Char', bool: 'Boolean', unknown: 'Real' };
+
+class PascalGen extends Gen {
+  readonly cmt = '// ';
+  protected fork() { return new PascalGen(this.lang, this.opts); }
+  private pt(t: VarType) { return t.array ? `array of ${PAS_TYPES[t.base]}` : PAS_TYPES[t.base]; }
+
+  protected fileHeader(main: Diagram) {
+    this.headerComments(main);
+    this.line();
+    if (main.diagramType !== 'sub') this.line(`program ${parseSignature(main).name};`);
+    if (this.ctx.imports.size) this.line(`uses ${[...this.ctx.imports].sort().join(', ')};`);
+    this.line();
+  }
+
+  protected routine(d: Diagram, isMain: boolean) {
+    this.setDiagram(d);
+    const paramNames = new Set(this.sig.params.map((p) => p.name));
+    const loopVars = new Map<string, VarType>();
+    walk(d, (el) => {
+      if (el.kind === 'for') {
+        const fi = forInfo(el, this.k);
+        if (fi.var && !paramNames.has(fi.var) && !this.vars.has(fi.var)) {
+          loopVars.set(fi.var, { base: fi.style === 'COUNTER' ? 'int' : 'unknown', array: false });
+        }
+      }
+    });
+    const localVars: [string, VarType][] = [
+      ...[...this.vars.entries()],
+      ...[...loopVars.entries()],
+    ].filter(([name]) => isMain || name.toLowerCase() !== this.sig.name.toLowerCase());
+
+    if (!isMain) {
+      const params = this.sig.params.map((p) => `${p.name}: ${this.pt(p.type)}`).join('; ');
+      if (this.sig.isFunction) {
+        const ret = this.pt(this.sig.result ?? this.vars.get(this.resultVar ?? '') ?? { base: 'unknown', array: false });
+        this.line(`function ${this.sig.name}(${params}): ${ret};`);
+      } else {
+        this.line(`procedure ${this.sig.name}(${params});`);
+      }
+    }
+
+    if (localVars.length > 0) {
+      this.line('var');
+      this.level++;
+      for (const [name, t] of localVars) this.line(`${name}: ${this.pt(t)};`);
+      this.level--;
+    }
+
+    this.line('begin');
+    this.level++;
+    for (const inc of this.includedDiagrams(d)) {
+      this.comment(`=== included from ${parseSignature(inc).name} ===`);
+      for (const el of inc.children) this.element(el);
+    }
+    for (const el of d.children) this.element(el);
+    if (!isMain && this.resultVar && this.resultVar.toLowerCase() !== this.sig.name.toLowerCase()) {
+      this.line(`${this.sig.name} := ${this.resultVar};`);
+    }
+    this.level--;
+    this.line(isMain ? 'end.' : 'end;');
+    this.line();
+  }
+
+  protected stmt(s: Stmt) {
+    switch (s.t) {
+      case 'empty': return;
+      case 'typedef': this.comment(s.raw); return;
+      case 'decl': return;
+      case 'input':
+        if (s.prompt) this.line(`write(${this.ex(s.prompt)});`);
+        if (s.targets.length === 0) this.line('readln;');
+        else this.line(`readln(${s.targets.map((t) => this.ex(t)).join(', ')});`);
+        return;
+      case 'output':
+        if (s.exprs.length === 0) this.line('writeln;');
+        else this.line(`writeln(${s.exprs.map((e) => this.ex(e)).join(', ')});`);
+        return;
+      case 'assign': this.line(`${this.ex(s.target)} := ${this.ex(s.expr)};`); return;
+      case 'return':
+        if (s.expr && this.sig.isFunction) this.line(`${this.sig.name} := ${this.ex(s.expr)};`);
+        this.line('exit;');
+        return;
+      case 'leave':
+        if (s.levels > 1) this.comment(`leave ${s.levels} loop levels (not directly supported)`);
+        this.line('break;');
+        return;
+      case 'exit': this.line(`halt${s.expr ? `(${this.ex(s.expr)})` : ''};`); return;
+      case 'throw':
+        this.ctx.imports.add('SysUtils');
+        this.line(`raise Exception.Create(${s.expr ? this.ex(s.expr) : "''"});`);
+        return;
+      case 'call': {
+        const id = this.incDec(s.expr);
+        if (id) this.line(`${this.ex(id.target)} := ${this.ex(id.target)} + (${id.delta});`);
+        else this.line(`${this.ex(s.expr)};`);
+        return;
+      }
+    }
+  }
+
+  protected genIf(c: string, t: Element[], e: Element[]) {
+    this.line(`if ${c} then`);
+    this.line('begin');
+    this.block(t);
+    if (e.length === 1 && e[0].kind === 'alternative' && !e[0].disabled && e[0].comment.length === 0) {
+      const inner = e[0];
+      this.line('end');
+      this.ids.push(inner.id);
+      this.line(`else if ${this.cond(inner.text, this.k.preAlt, this.k.postAlt)} then`);
+      this.line('begin');
+      this.block(inner.thenBranch);
+      if (inner.elseBranch.length) {
+        this.line('end');
+        this.line('else');
+        this.line('begin');
+        this.block(inner.elseBranch);
+      }
+      this.ids.pop();
+      this.line('end;');
+    } else if (e.length > 0) {
+      this.line('end');
+      this.line('else');
+      this.line('begin');
+      this.block(e);
+      this.line('end;');
+    } else {
+      this.line('end;');
+    }
+  }
+
+  protected genCase(info: CaseInfo, el: Case) {
+    this.line(`case ${this.ex(info.discriminator)} of`);
+    this.level++;
+    for (const b of info.branches) {
+      if (b.values === null) this.line('else');
+      else this.line(`${b.values.map((v) => this.ex(v)).join(', ')}:`);
+      this.line('begin');
+      this.block(el.branches[b.index]);
+      this.line('end;');
+    }
+    this.level--;
+    this.line('end;');
+  }
+
+  protected genFor(fi: ForInfo, body: Element[]) {
+    if (fi.style === 'COUNTER' && (fi.step === 1 || fi.step === -1)) {
+      const kw = fi.step === 1 ? 'to' : 'downto';
+      this.line(`for ${fi.var} := ${this.ex(fi.start || '0')} ${kw} ${this.ex(fi.end)} do`);
+      this.line('begin');
+      this.block(body);
+      this.line('end;');
+    } else if (fi.style === 'COUNTER') {
+      this.line(`${fi.var} := ${this.ex(fi.start || '0')};`);
+      this.line(`while ${fi.var} ${fi.step >= 0 ? '<=' : '>='} ${this.ex(fi.end)} do`);
+      this.line('begin');
+      this.block(body);
+      this.level++;
+      this.line(`${fi.var} := ${fi.var} ${fi.step >= 0 ? `+ ${fi.step}` : `- ${-fi.step}`};`);
+      this.level--;
+      this.line('end;');
+    } else if (fi.style === 'TRAVERSAL') {
+      this.line(`for ${fi.var} in ${this.ex(fi.list)} do`);
+      this.line('begin');
+      this.block(body);
+      this.line('end;');
+    } else {
+      this.comment(`TODO: ${fi.raw}`);
+      this.line('while true do');
+      this.line('begin');
+      this.block(body);
+      this.line('end;');
+    }
+  }
+
+  protected genWhile(c: string, body: Element[]) {
+    this.line(`while ${c} do`);
+    this.line('begin');
+    this.block(body);
+    this.line('end;');
+  }
+
+  protected genRepeat(c: string, body: Element[]) {
+    this.line('repeat');
+    this.level++;
+    for (const el of body) this.element(el);
+    this.level--;
+    this.line(`until ${c};`);
+  }
+
+  protected genForever(body: Element[]) {
+    this.line('while true do');
+    this.line('begin');
+    this.block(body);
+    this.line('end;');
+  }
+
+  protected genParallel(branches: Element[][]) {
+    this.comment('==== parallel section (executed one after another here) ====');
+    branches.forEach((b, i) => {
+      this.comment(`---- thread ${i + 1} ----`);
+      this.line('begin');
+      this.block(b);
+      this.line('end;');
+    });
+    this.comment('==== end of parallel section ====');
+  }
+
+  protected genTry(v: string, t: Element[], c: Element[], f: Element[]) {
+    this.ctx.imports.add('SysUtils');
+    if (f.length) {
+      this.line('try');
+      this.level++;
+    }
+    this.line('try');
+    this.block(t);
+    this.line('except');
+    this.level++;
+    this.line(`on ${v}: Exception do`);
+    this.line('begin');
+    this.block(c);
+    this.line('end;');
+    this.level--;
+    this.line('end;');
+    if (f.length) {
+      this.level--;
+      this.line('finally');
+      this.block(f);
+      this.line('end;');
+    }
+  }
 }
 
 // ------------------------------------------------------------------ PHP
@@ -971,7 +1455,10 @@ export function generateCode(d: Diagram, lang: LangId, opts: GenOptions = {}): G
     case 'python': return new PythonGen(info, opts).generate(d);
     case 'java': return new JavaGen(info, opts).generate(d);
     case 'javascript': return new JsGen(info, opts).generate(d);
+    case 'c': return new CGen(info, opts).generate(d);
     case 'cpp': return new CppGen(info, opts).generate(d);
+    case 'csharp': return new CSharpGen(info, opts).generate(d);
+    case 'pascal': return new PascalGen(info, opts).generate(d);
     case 'php': return new PhpGen(info, opts).generate(d);
     case 'bash': return new BashGen(info, opts).generate(d);
   }
