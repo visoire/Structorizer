@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Interactive diagram: tap selects, double tap edits, drag (mouse) or long press (touch) moves, pinch zooms.
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { createLayoutEngine, hitBranchHead, hitTest, nearestGap, type Gap, type Hit, type Scene } from '../core/layout';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createLayoutEngine, dropGap, hitBranchHead, hitTest, type Gap, type Hit, type Scene } from '../core/layout';
 import { analyseDiagram, parseSignature } from '../core/lang';
 import { DEFAULT_COLORS, findById, type ElementKind } from '../core/model';
 import { isInside, sameRef } from '../core/model/tree';
@@ -113,13 +113,101 @@ export function DiagramView() {
 
   const validGap = (g: Gap | null, id: string): Gap | null => {
     if (!g) return null;
-    if (g.ref.owner !== 'root' && isInside(useStore.getState().diagram, id, g.ref.owner)) return null;
+    const d = useStore.getState().diagram;
+    if (g.ref.owner !== 'root' && (g.ref.owner === id || isInside(d, id, g.ref.owner))) return null;
+    // dropping right before or after itself changes nothing
+    const own = findById(d, id);
+    if (own && sameRef(own.parentSeq, g.ref) && (g.index === own.index || g.index === own.index + 1)) return null;
     return g;
   };
+
+  // ---------- zoom that keeps the point under the pointer / pinch centre (or the view centre) in place
+  const zoomAnchor = useRef<{ ax: number; ay: number } | null>(null);
+  const prevZoom = useRef(zoom);
+  const prevOff = useRef({ x: 0, y: 0 });
+  const zoomAt = (z: number, clientX?: number, clientY?: number) => {
+    const sc = scrollRef.current;
+    if (sc && clientX !== undefined && clientY !== undefined) {
+      const r = sc.getBoundingClientRect();
+      zoomAnchor.current = { ax: clientX - r.left, ay: clientY - r.top };
+    }
+    useStore.getState().setZoom(z);
+  };
+  useLayoutEffect(() => {
+    const sc = scrollRef.current;
+    const host = hostRef.current;
+    if (!sc || !host) return;
+    if (prevZoom.current !== zoom) {
+      const a = zoomAnchor.current ?? { ax: sc.clientWidth / 2, ay: sc.clientHeight / 2 };
+      const sx = (sc.scrollLeft + a.ax - prevOff.current.x) / prevZoom.current;
+      const sy = (sc.scrollTop + a.ay - prevOff.current.y) / prevZoom.current;
+      sc.scrollLeft = host.offsetLeft + sx * zoom - a.ax;
+      sc.scrollTop = host.offsetTop + sy * zoom - a.ay;
+    }
+    zoomAnchor.current = null;
+    prevZoom.current = zoom;
+    prevOff.current = { x: host.offsetLeft, y: host.offsetTop };
+  });
+
+  // Ctrl/Cmd + wheel and trackpad pinch (which Chromium/Safari report as ctrl+wheel) zoom at the pointer
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+      const factor = Math.exp(Math.max(-60, Math.min(60, -e.deltaY * unit)) * 0.006);
+      zoomAt(useStore.getState().zoom * factor, e.clientX, e.clientY);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode]);
+
+  // ---------- auto-scroll while dragging an element near the edges (long diagrams, small iPad views)
+  const dragPt = useRef<{ x: number; y: number } | null>(null);
+  const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null);
+  const sceneRef = useRef(scene);
+  sceneRef.current = scene;
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+  useEffect(() => {
+    if (!dragId) return;
+    let raf = 0;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const sc = scrollRef.current;
+      const pt = dragPt.current;
+      if (!sc || !pt) return;
+      const r = sc.getBoundingClientRect();
+      const EDGE = 48;
+      const speed = (d: number) => (d < EDGE ? Math.ceil(((EDGE - d) / EDGE) * 18) : 0);
+      const dy = speed(pt.y - r.top) > 0 ? -speed(pt.y - r.top) : speed(r.bottom - pt.y);
+      const dx = speed(pt.x - r.left) > 0 ? -speed(pt.x - r.left) : speed(r.right - pt.x);
+      if (!dx && !dy) return;
+      const beforeL = sc.scrollLeft, beforeT = sc.scrollTop;
+      sc.scrollLeft += dx;
+      sc.scrollTop += dy;
+      if (sc.scrollLeft === beforeL && sc.scrollTop === beforeT) return;
+      const hr = hostRef.current!.getBoundingClientRect();
+      const z = zoomRef.current;
+      setGap(validGap(dropGap(sceneRef.current, (pt.x - hr.left) / z, (pt.y - hr.top) / z), dragId));
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragId]);
+
+  // ---------- mouse panning: drag on the empty desk (left button) or anywhere (middle button)
+  const pan = useRef<{ id: number; x: number; y: number; sl: number; st: number; moved: boolean } | null>(null);
+  const [panning, setPanning] = useState(false);
 
   const startDrag = (p: PressState) => {
     if (!p.hit || p.hit.t !== 'el') return;
     p.dragging = true;
+    // keep receiving moves when the finger/pencil leaves the diagram (auto-scroll at the edges)
+    try { hostRef.current?.setPointerCapture(p.pointerId); } catch { /* ignore */ }
     setDragId(p.hit.id);
     useStore.getState().select({ t: 'el', id: p.hit.id });
     if (navigator.vibrate) { try { navigator.vibrate(15); } catch { /* ignore */ } }
@@ -176,7 +264,7 @@ export function DiagramView() {
     if (pinch.current && pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (pinch.current.dist > 0) useStore.getState().setZoom(pinch.current.zoom * (d / pinch.current.dist));
+      if (pinch.current.dist > 0) zoomAt(pinch.current.zoom * (d / pinch.current.dist), (a.x + b.x) / 2, (a.y + b.y) / 2);
       return;
     }
     const p = press.current;
@@ -198,8 +286,10 @@ export function DiagramView() {
     }
     if (moved > 8) p.movedInDrag = true;
     if (!p.movedInDrag) return;
+    dragPt.current = { x: lastPt.x, y: lastPt.y };
+    setGhost({ x: lastPt.x, y: lastPt.y });
     const pt = toScene(lastPt.x, lastPt.y);
-    setGap(validGap(nearestGap(scene, pt.x, pt.y), (p.hit as Extract<Hit, { t: 'el' }>).id));
+    setGap(validGap(dropGap(scene, pt.x, pt.y), (p.hit as Extract<Hit, { t: 'el' }>).id));
   };
 
   const finish = (e: React.PointerEvent, cancelled: boolean) => {
@@ -232,6 +322,8 @@ export function DiagramView() {
       else if (!cancelled && !p.movedInDrag && p.type !== 'mouse') store.openContextMenu({ x: e.clientX, y: e.clientY });
       setDragId(null);
       setGap(null);
+      setGhost(null);
+      dragPt.current = null;
       return;
     }
     if (cancelled || p.cancelled) return;
@@ -300,7 +392,9 @@ export function DiagramView() {
     const bottom = top + Math.min(selHit.h * zoom, sc.clientHeight - 40);
     if (top < sc.scrollTop) sc.scrollTop = top - 20;
     else if (bottom > sc.scrollTop + sc.clientHeight) sc.scrollTop = bottom - sc.clientHeight + 20;
-  }, [selHit, zoom]);
+    // only when the selection changes: zooming keeps the point under the pointer instead
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selHit]);
 
   const hoverHit = useMemo(() => {
     if (!hoverId || selIds.has(hoverId)) return null;
@@ -311,6 +405,11 @@ export function DiagramView() {
     if (!runningElementId) return null;
     return scene.hits.find((h): h is Extract<Hit, { t: 'el' }> => h.t === 'el' && h.id === runningElementId) ?? null;
   }, [scene, runningElementId]);
+
+  const dragHit = useMemo(() => {
+    if (!dragId || !ghost) return null;
+    return scene.hits.find((h): h is Extract<Hit, { t: 'el' }> => h.t === 'el' && h.id === dragId) ?? null;
+  }, [scene, dragId, ghost]);
 
   const elHitsAll = useMemo(
     () => scene.hits.filter((h): h is Extract<Hit, { t: 'el' }> => h.t === 'el'),
@@ -372,6 +471,9 @@ export function DiagramView() {
       {selHit && selHit.t === 'root' && (
         <rect x={1.5} y={1.5} width={selHit.w - 2} height={selHit.h - 2} className="sel-outline" />
       )}
+      {dragHit && (
+        <rect x={dragHit.x + 1} y={dragHit.y + 1} width={Math.max(0, dragHit.w - 1)} height={Math.max(0, dragHit.h - 1)} className="drag-src" />
+      )}
       {dragId && gap && (
         <g className="drop">
           <line x1={gap.x + 2} y1={gap.y} x2={gap.x + gap.w - 2} y2={gap.y} />
@@ -396,8 +498,38 @@ export function DiagramView() {
   }
 
   return (
-    <div className="diagram-scroll" ref={scrollRef}
-      onPointerDown={(e) => { if (e.target === scrollRef.current) useStore.getState().select(null); }}>
+    <div className={'diagram-scroll' + (panning ? ' panning' : '')} ref={scrollRef}
+      onPointerDown={(e) => {
+        const sc = scrollRef.current!;
+        const onDesk = e.target === sc;
+        const middle = e.pointerType === 'mouse' && e.button === 1;
+        if (middle) e.preventDefault(); // no autoscroll cursor (Windows)
+        if (e.pointerType === 'mouse' && ((onDesk && e.button === 0) || middle)) {
+          pan.current = { id: e.pointerId, x: e.clientX, y: e.clientY, sl: sc.scrollLeft, st: sc.scrollTop, moved: false };
+          try { sc.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+          return;
+        }
+        if (onDesk) useStore.getState().select(null);
+      }}
+      onPointerMove={(e) => {
+        const pn = pan.current;
+        if (!pn || pn.id !== e.pointerId) return;
+        const dx = e.clientX - pn.x, dy = e.clientY - pn.y;
+        if (!pn.moved && Math.hypot(dx, dy) < 4) return;
+        if (!pn.moved) { pn.moved = true; setPanning(true); }
+        const sc = scrollRef.current!;
+        sc.scrollLeft = pn.sl - dx;
+        sc.scrollTop = pn.st - dy;
+      }}
+      onPointerUp={(e) => {
+        const pn = pan.current;
+        if (!pn || pn.id !== e.pointerId) return;
+        pan.current = null;
+        setPanning(false);
+        if (!pn.moved && e.target === scrollRef.current) useStore.getState().select(null);
+      }}
+      onPointerCancel={() => { pan.current = null; setPanning(false); }}
+      onAuxClick={(e) => { if (e.button === 1) e.preventDefault(); }}>
       <div
         className={'diagram-host' + (dragId ? ' dragging' : '')}
         ref={hostRef}
@@ -432,6 +564,12 @@ export function DiagramView() {
         )}
       </div>
       {quickDish && <QuickDish point={quickDish} />}
+      {ghost && dragHit && (
+        <div className={'drag-ghost' + (gap ? '' : ' no-drop')} style={{ left: ghost.x, top: ghost.y }} aria-hidden="true">
+          <KindIcon kind={dragHit.kind} />
+          <span>{t(('kind.' + dragHit.kind) as TKey)}</span>
+        </div>
+      )}
     </div>
   );
 }

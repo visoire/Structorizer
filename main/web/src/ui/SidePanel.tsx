@@ -155,6 +155,20 @@ function ArrangerIndex() {
   );
 }
 
+/** Window with the docked part highlighted on `side`: shows where the panel goes when clicked. */
+export function DockIcon({ side }: { side: 'left' | 'right' | 'top' | 'bottom' }) {
+  const fill = side === 'left' ? { x: 2, y: 2, w: 4, h: 10 }
+    : side === 'right' ? { x: 8, y: 2, w: 4, h: 10 }
+      : side === 'top' ? { x: 2, y: 2, w: 10, h: 4 }
+        : { x: 2, y: 8, w: 10, h: 4 };
+  return (
+    <svg width="16" height="16" viewBox="0 0 14 14" aria-hidden="true">
+      <rect x="1.5" y="1.5" width="11" height="11" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      <rect x={fill.x} y={fill.y} width={fill.w} height={fill.h} rx="0.6" fill="currentColor" opacity="0.75" />
+    </svg>
+  );
+}
+
 export function SidePanel() {
   const p = usePrefs();
   const t = useTranslator(p.lang);
@@ -177,9 +191,14 @@ export function SidePanel() {
       <div className="panel-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={p.panelTab === 'index'} onClick={() => p.set({ panelTab: 'index' })}>{t('arrangerIndex')}</button>
         <button type="button" role="tab" aria-selected={p.panelTab === 'code'} onClick={() => p.set({ panelTab: 'code' })}>{t('codePreview')}</button>
-        <button type="button" className="icon-btn" title={`${t('panelPos')}: ${t(isLeft ? 'posRight' : 'posLeft')}`}
-          onClick={() => p.set({ panelPosition: isLeft ? 'right' : 'left' })}>⇄</button>
-        <button type="button" className="icon-btn close" aria-label={t('closePanel')} title={t('closePanel')} onClick={() => p.set({ panelOpen: false })}><svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg></button>
+        <div className="head-actions">
+          <button type="button" className="icon-btn" aria-label={`${t('panelPos')}: ${t(isLeft ? 'posRight' : 'posLeft')}`}
+            title={`${t('panelPos')}: ${t(isLeft ? 'posRight' : 'posLeft')}`}
+            onClick={() => p.set({ panelPosition: isLeft ? 'right' : 'left' })}>
+            <DockIcon side={isLeft ? 'right' : 'left'} />
+          </button>
+          <button type="button" className="icon-btn close" aria-label={t('closePanel')} title={t('closePanel')} onClick={() => p.set({ panelOpen: false })}><svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg></button>
+        </div>
       </div>
       <div className="panel-body">
         {p.panelTab === 'code' ? <CodePreview /> : <ArrangerIndex />}

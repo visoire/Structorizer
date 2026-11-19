@@ -87,4 +87,5 @@ export const ptBr: Dict = {
   turtleClear: 'Limpar', turtleGrid: 'Grade', turtleDock: 'Acoplar', turtleFloat: 'Flutuante',
   panelPos: 'Posição do painel lateral', execPos: 'Posição do painel executor',
   posLeft: 'Esquerda', posRight: 'Direita', posBottom: 'Inferior', posTop: 'Superior',
+  dropFiles: 'Solte arquivos .nsd, .arrz ou .arr para abri-los', dropNoFiles: 'Nenhum arquivo .nsd, .arrz ou .arr',
 };

@@ -87,4 +87,5 @@ export const it: Dict = {
   turtleClear: 'Pulisci', turtleGrid: 'Griglia', turtleDock: 'Aggancia', turtleFloat: 'Flottante',
   panelPos: 'Posizione pannello laterale', execPos: 'Posizione pannello esecutore',
   posLeft: 'Sinistra', posRight: 'Destra', posBottom: 'Basso', posTop: 'Alto',
+  dropFiles: 'Rilascia file .nsd, .arrz o .arr per aprirli', dropNoFiles: 'Nessun file .nsd, .arrz o .arr',
 };

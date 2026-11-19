@@ -10,6 +10,37 @@ build number. Desktop issue numbers refer to
 
 ## [Unreleased]
 
+## [3.32.35-web.9] – 2026-11-19 (corresponds to Structorizer 3.32-35)
+
+UI/UX pass: small fixes that make everyday editing on desktop and iPad smoother.
+
+### Changed
+- **Drag and drop of elements**: the whole element is now a drop zone, not only the thin line
+  between two elements. Upper half of an element inserts before it, lower half after it; for
+  IF/CASE/loops the header decides, so big loop bodies are no dead zone. Empty branches take the
+  element, the title inserts at the top, below the diagram appends. While dragging, the source is
+  dimmed, a label follows the pointer and the view auto-scrolls at the edges (mouse, touch, Pencil).
+- **Panel controls**: the side panel's "switch sides" button and the Executor's position button sit
+  next to the close button (they used to drift to the middle). The Executor position is now a small
+  menu with all four positions and dock icons.
+- **Zoom and scroll**: Ctrl/Cmd + wheel and trackpad pinch zoom at the pointer, touch pinch zooms at
+  the pinch centre, toolbar zoom keeps the view centre. Drag on the empty desk (or with the middle
+  mouse button) pans the diagram. Zooming no longer jumps back to the selection.
+- **Context menu**: it measures itself and opens upwards/leftwards when there is no room, and
+  scrolls when the screen is too short, so the last items (Toggle breakpoint) are always visible.
+- **Dialogs**: only the dialog body scrolls, head and buttons stay visible; the height follows the
+  visual viewport, so the iPad keyboard never hides the OK button. Preferences tabs stay on top while
+  scrolling. On phones dialogs open as a full-width bottom sheet.
+
+### Added
+- **Open .nsd/.arrz/.arr by drag and drop** from Explorer, Finder or the iPad Files app (Split View),
+  with a drop overlay. Installed PWAs register as file handler for .nsd/.arrz/.arr (Chromium).
+
+### Fixed
+- Making the Executor panel taller than about 300 px pushed it over the menu bar and toolbar. The
+  bars no longer shrink, the panel is limited to the free space and the diagram keeps 140 px.
+- Live app URL is now lowercase: https://visoire.github.io/structorizer/
+
 ## [3.32.35-web.8] – 2026-11-18 (corresponds to Structorizer 3.32-35)
 
 Added Static Analyser (`A01`–`A09`), Content Assist, 2D Arranger Board (`.arr`/`.arrz` archives), Turtleizer Studio & code export, resizable/dockable Executor and Side Panel across all 13 locales, Capacitor iPadOS native wrapper configuration, and MCP Server execution/analysis/HTTP enhancements.

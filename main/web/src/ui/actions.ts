@@ -43,6 +43,13 @@ export const actions = {
 
   open: async () => {
     const files = await pickFile('.nsd,.arrz,.arr,application/xml,text/xml,application/zip', true);
+    await actions.openFiles(files);
+  },
+
+  /** Open picked or dropped files (drag and drop from Finder/Explorer/Files app). Other files are skipped. */
+  openFiles: async (input: File[], fromDrop = false) => {
+    const files = fromDrop ? input.filter((f) => /\.(nsd|arrz|arr|xml)$/i.test(f.name)) : input;
+    if (fromDrop && files.length === 0) { notify(t()('dropNoFiles'), 'error'); return; }
     for (const file of files) {
       await guard(async () => {
         const low = file.name.toLowerCase();

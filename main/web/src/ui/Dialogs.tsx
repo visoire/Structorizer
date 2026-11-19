@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { LANGUAGES, type LangId } from '../core/gen/generators';
 import { findById, KEYWORD_KEYS, updateElement, walk, type Element, type Keywords } from '../core/model';
 import { LANGS, useTranslator, type Lang, type TKey } from '../i18n';
@@ -311,10 +311,44 @@ export function Dialogs() {
 
 // ------------------------------------------------------------------ context menu
 
+/**
+ * Places a popup at the pointer so it always fits: it opens upwards/leftwards when there is no
+ * room below/right and scrolls inside when even the full visual viewport is too short.
+ */
+function useFitPopup(anchor: { x: number; y: number } | null) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState<{ left: number; top: number; maxH: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!anchor || !ref.current) { setBox(null); return; }
+    const M = 8;
+    const vv = window.visualViewport;
+    const vw = vv?.width ?? window.innerWidth;
+    const vh = vv?.height ?? window.innerHeight;
+    const offX = vv?.offsetLeft ?? 0;
+    const offY = vv?.offsetTop ?? 0;
+    const el = ref.current;
+    el.style.maxHeight = 'none';
+    const w = el.offsetWidth;
+    const h = el.scrollHeight;
+    const maxH = Math.max(120, vh - 2 * M);
+    const ax = anchor.x - offX;
+    const ay = anchor.y - offY;
+    const left = ax + w + M <= vw ? ax : Math.max(M, Math.min(ax - w, vw - w - M));
+    let top: number;
+    if (ay + Math.min(h, maxH) + M <= vh) top = ay; // fits below the pointer
+    else if (ay - Math.min(h, maxH) >= M) top = ay - Math.min(h, maxH); // flip above
+    else top = Math.max(M, vh - Math.min(h, maxH) - M); // pin to the bottom edge
+    el.style.maxHeight = '';
+    setBox({ left: left + offX, top: top + offY, maxH });
+  }, [anchor]);
+  return { ref, style: box ? { left: box.left, top: box.top, maxHeight: box.maxH } : { left: -9999, top: -9999, visibility: 'hidden' as const } };
+}
+
 export function ContextMenu() {
   const s = useStore();
   const t = useTranslator(usePrefs((p) => p.lang));
   const pos = s.contextMenu;
+  const popup = useFitPopup(pos);
   if (!pos) return null;
   const el = s.selection?.t === 'el' ? findById(s.diagram, s.selection.id)?.el ?? null : null;
   const close = () => s.openContextMenu(null);
@@ -323,11 +357,11 @@ export function ContextMenu() {
       <span className="mi-label">{label}</span>
     </button>
   );
-  const x = Math.min(pos.x, window.innerWidth - 240);
-  const y = Math.min(pos.y, window.innerHeight - 380);
   return (
-    <div className="ctx-backdrop" onPointerDown={close} onContextMenu={(e) => { e.preventDefault(); close(); }}>
-      <div className="ctx-menu menu-list" role="menu" style={{ left: Math.max(8, x), top: Math.max(8, y) }} onPointerDown={(e) => e.stopPropagation()}>
+    <div className="ctx-backdrop" onPointerDown={close} onContextMenu={(e) => { e.preventDefault(); close(); }}
+      onWheel={close}>
+      <div className="ctx-menu menu-list" role="menu" ref={popup.ref} style={popup.style}
+        onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
         {item(t('edit'), actions.editSelected)}
         {item(t('cut'), actions.cut, !el)}
         {item(t('copy'), actions.copy, !el)}

@@ -94,6 +94,7 @@ export const en = {
   turtleClear: 'Clear', turtleGrid: 'Grid', turtleDock: 'Dock', turtleFloat: 'Float',
   panelPos: 'Side panel position', execPos: 'Executor panel position',
   posLeft: 'Left', posRight: 'Right', posBottom: 'Bottom', posTop: 'Top',
+  dropFiles: 'Drop .nsd, .arrz or .arr files to open them', dropNoFiles: 'No .nsd, .arrz or .arr file in the drop',
 } as const;
 
 export type Dict = Record<keyof typeof en, string>;

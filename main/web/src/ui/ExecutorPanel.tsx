@@ -8,8 +8,10 @@ import { useStore } from '../store/diagramStore';
 import { useExecStore } from '../store/execStore';
 import { usePrefs, type ExecPosition } from '../store/prefsStore';
 import { downloadBlob } from './exporters';
+import { DockIcon } from './SidePanel';
 
 const POS_CYCLE: ExecPosition[] = ['bottom', 'right', 'top', 'left'];
+const POS_LABEL = { bottom: 'posBottom', top: 'posTop', left: 'posLeft', right: 'posRight' } as const;
 
 export function ExecutorPanel({ placement }: { placement?: 'vertical' | 'horizontal' }) {
   const ex = useExecStore();
@@ -22,8 +24,9 @@ export function ExecutorPanel({ placement }: { placement?: 'vertical' | 'horizon
   const [editingVar, setEditingVar] = useState<string | null>(null);
   const [editVal, setEditVal] = useState('');
   const [subArgs, setSubArgs] = useState<Record<string, string>>({});
+  const [posMenu, setPosMenu] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const resizeDrag = useRef<{ start: number; size: number } | null>(null);
+  const resizeDrag = useRef<{ start: number; size: number; max: number } | null>(null);
 
   const sig = parseSignature(diagram);
   const isSubWithParams = diagram.diagramType === 'sub' && sig.params.length > 0;
@@ -70,11 +73,6 @@ export function ExecutorPanel({ placement }: { placement?: 'vertical' | 'horizon
     }
   };
 
-  const cycleExecPos = () => {
-    const next = POS_CYCLE[(POS_CYCLE.indexOf(p.execPosition) + 1) % POS_CYCLE.length];
-    p.set({ execPosition: next });
-  };
-
   const selElId = selection?.t === 'el' ? selection.id : undefined;
   const hasBp = selElId ? ex.breakpoints.has(selElId) : false;
 
@@ -96,9 +94,16 @@ export function ExecutorPanel({ placement }: { placement?: 'vertical' | 'horizon
             aria-orientation={isSide ? 'vertical' : 'horizontal'}
             onPointerDown={(e) => {
               e.preventDefault();
+              // the diagram keeps at least 140 px (height) / 240 px (width): the panel may never
+              // push the menu bar and toolbar out of view
+              const own = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+              const ws = document.querySelector('.workspace')?.getBoundingClientRect();
+              const size = isSide ? own.width : own.height;
+              const free = ws ? (isSide ? ws.width : ws.height) : 0;
               resizeDrag.current = {
                 start: isSide ? e.clientX : e.clientY,
-                size: isSide ? p.execWidth : p.execHeight,
+                size,
+                max: Math.max(isSide ? 260 : 120, (isSide ? 0 : size) + free - (isSide ? 240 : 140)),
               };
               try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* ignore */ }
             }}
@@ -107,11 +112,11 @@ export function ExecutorPanel({ placement }: { placement?: 'vertical' | 'horizon
               if (!d) return;
               if (isSide) {
                 const delta = p.execPosition === 'left' ? (e.clientX - d.start) : (d.start - e.clientX);
-                const w = Math.min(Math.max(260, d.size + delta), Math.min(820, window.innerWidth - 260));
+                const w = Math.min(Math.max(260, d.size + delta), d.max, 900);
                 p.set({ execWidth: Math.round(w) });
               } else {
                 const delta = p.execPosition === 'top' ? (e.clientY - d.start) : (d.start - e.clientY);
-                const h = Math.min(Math.max(120, d.size + delta), Math.min(620, window.innerHeight - 180));
+                const h = Math.min(Math.max(120, d.size + delta), d.max);
                 p.set({ execHeight: Math.round(h) });
               }
             }}
@@ -120,6 +125,7 @@ export function ExecutorPanel({ placement }: { placement?: 'vertical' | 'horizon
           />
 
           <div className="exec-bar">
+            <div className="exec-controls">
             <strong className="exec-title">{t('executor').replace(/\s*\.\.\.$/, '')}</strong>
             <span className={'exec-badge ' + ex.status}>{ex.status.toUpperCase()}</span>
             <button
@@ -191,25 +197,48 @@ export function ExecutorPanel({ placement }: { placement?: 'vertical' | 'horizon
             >
               🐢 {t('turtleizer').replace(/\s*\.\.\.$/, '')}
             </button>
-            <button
-              type="button"
-              className="icon-btn"
-              title={`${t('execPos')}: ${t(p.execPosition === 'bottom' ? 'posBottom' : p.execPosition === 'top' ? 'posTop' : p.execPosition === 'left' ? 'posLeft' : 'posRight')}`}
-              onClick={cycleExecPos}
-            >
-              ⬒
-            </button>
-            <button
-              type="button"
-              className="icon-btn close"
-              aria-label={t('close')}
-              title={t('close')}
-              onClick={() => { ex.stop(); ex.setOpen(false); }}
-            >
-              <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true">
-                <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              </svg>
-            </button>
+            </div>
+            <div className="head-actions">
+              <div className="pos-picker">
+                <button
+                  type="button"
+                  className="icon-btn"
+                  aria-haspopup="menu"
+                  aria-expanded={posMenu}
+                  aria-label={`${t('execPos')}: ${t(POS_LABEL[p.execPosition])}`}
+                  title={`${t('execPos')}: ${t(POS_LABEL[p.execPosition])}`}
+                  onClick={() => setPosMenu(!posMenu)}
+                >
+                  <DockIcon side={p.execPosition} />
+                </button>
+                {posMenu && (
+                  <>
+                    <div className="pos-backdrop" onPointerDown={() => setPosMenu(false)} />
+                    <div className={'pos-menu menu-list at-' + p.execPosition} role="menu">
+                      {POS_CYCLE.map((pos) => (
+                        <button key={pos} type="button" role="menuitemradio" aria-checked={p.execPosition === pos}
+                          className="menu-item" onClick={() => { p.set({ execPosition: pos }); setPosMenu(false); }}>
+                          <span className="mi-check"><DockIcon side={pos} /></span>
+                          <span className="mi-label">{t(POS_LABEL[pos])}</span>
+                          {p.execPosition === pos && <span aria-hidden="true">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+              <button
+                type="button"
+                className="icon-btn close"
+                aria-label={t('close')}
+                title={t('close')}
+                onClick={() => { ex.stop(); ex.setOpen(false); }}
+              >
+                <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true">
+                  <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {isSubWithParams && (ex.status === 'idle' || ex.status === 'done' || ex.status === 'error') && (

@@ -87,4 +87,5 @@ export const zhCn: Dict = {
   turtleClear: '清空', turtleGrid: '网格', turtleDock: '停靠', turtleFloat: '浮动',
   panelPos: '侧边栏位置', execPos: '执行器栏位置',
   posLeft: '左侧', posRight: '右侧', posBottom: '底部', posTop: '顶部',
+  dropFiles: '拖放 .nsd、.arrz 或 .arr 文件以打开', dropNoFiles: '没有 .nsd、.arrz 或 .arr 文件',
 };

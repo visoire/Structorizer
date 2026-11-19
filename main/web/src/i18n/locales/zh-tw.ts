@@ -87,4 +87,5 @@ export const zhTw: Dict = {
   turtleClear: '清除', turtleGrid: '網格', turtleDock: '停駐', turtleFloat: '浮動',
   panelPos: '側邊欄位置', execPos: '執行器面板位置',
   posLeft: '左側', posRight: '右側', posBottom: '底部', posTop: '頂部',
+  dropFiles: '拖放 .nsd、.arrz 或 .arr 檔案以開啟', dropNoFiles: '沒有 .nsd、.arrz 或 .arr 檔案',
 };

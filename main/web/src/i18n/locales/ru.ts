@@ -87,4 +87,5 @@ export const ru: Dict = {
   turtleClear: 'Очистить', turtleGrid: 'Сетка', turtleDock: 'Закрепить', turtleFloat: 'Плавающее',
   panelPos: 'Позиция боковой панели', execPos: 'Позиция панели исполнителя',
   posLeft: 'Слева', posRight: 'Справа', posBottom: 'Снизу', posTop: 'Сверху',
+  dropFiles: 'Перетащите файлы .nsd, .arrz или .arr, чтобы открыть', dropNoFiles: 'Нет файлов .nsd, .arrz или .arr',
 };

@@ -87,4 +87,5 @@ export const nl: Dict = {
   turtleClear: 'Wissen', turtleGrid: 'Raster', turtleDock: 'Vastzetten', turtleFloat: 'Zwevend',
   panelPos: 'Positie zijpaneel', execPos: 'Positie uitvoeringsbalk',
   posLeft: 'Links', posRight: 'Rechts', posBottom: 'Onder', posTop: 'Boven',
+  dropFiles: 'Sleep .nsd-, .arrz- of .arr-bestanden hierheen om te openen', dropNoFiles: 'Geen .nsd-, .arrz- of .arr-bestand',
 };

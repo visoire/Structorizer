@@ -99,6 +99,39 @@ export function App() {
     };
   }, []);
 
+  // ---------- drag and drop of .nsd/.arrz/.arr files (desktop browsers and iPadOS Files/Split View)
+  const [dropActive, setDropActive] = useState(false);
+  useEffect(() => {
+    let depth = 0;
+    const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files');
+    const enter = (e: DragEvent) => { if (!hasFiles(e)) return; e.preventDefault(); depth++; setDropActive(true); };
+    const over = (e: DragEvent) => { if (!hasFiles(e)) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; };
+    const leave = (e: DragEvent) => { if (!hasFiles(e)) return; depth = Math.max(0, depth - 1); if (depth === 0) setDropActive(false); };
+    const drop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      setDropActive(false);
+      void actions.openFiles(Array.from(e.dataTransfer?.files ?? []), true);
+    };
+    window.addEventListener('dragenter', enter);
+    window.addEventListener('dragover', over);
+    window.addEventListener('dragleave', leave);
+    window.addEventListener('drop', drop);
+    // installed PWA: "Open with Structorizer" for .nsd files (manifest file_handlers)
+    const lq = (window as unknown as { launchQueue?: { setConsumer: (fn: (p: { files: { getFile: () => Promise<File> }[] }) => void) => void } }).launchQueue;
+    lq?.setConsumer((params) => {
+      if (!params.files?.length) return;
+      void Promise.all(params.files.map((h) => h.getFile())).then((files) => actions.openFiles(files, true));
+    });
+    return () => {
+      window.removeEventListener('dragenter', enter);
+      window.removeEventListener('dragover', over);
+      window.removeEventListener('dragleave', leave);
+      window.removeEventListener('drop', drop);
+    };
+  }, []);
+
   // ---------- toast auto-hide
   useEffect(() => {
     if (!s.message) return;
@@ -261,6 +294,17 @@ export function App() {
         <DiagramEditor />
         <Dialogs />
         <ContextMenu />
+
+        {dropActive && (
+          <div className="drop-overlay" aria-live="polite">
+            <div className="drop-card">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 3v12M7 10l5 5 5-5M4 19h16" />
+              </svg>
+              <span>{t('dropFiles')}</span>
+            </div>
+          </div>
+        )}
 
         {s.message && (
           <div className={'toast ' + s.message.kind} role="status" onClick={() => useStore.setState({ message: null })}>{s.message.text}</div>

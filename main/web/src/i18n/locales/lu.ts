@@ -87,4 +87,5 @@ export const lu: Dict = {
   turtleClear: 'Eidel maachen', turtleGrid: 'Gitter', turtleDock: 'Undocken', turtleFloat: 'Schwieft',
   panelPos: 'Positioun vum Säitepanel', execPos: 'Positioun vum Executor',
   posLeft: 'Lénks', posRight: 'Riets', posBottom: 'Ënnen', posTop: 'Uewen',
+  dropFiles: '.nsd-, .arrz- oder .arr-Fichieren hei ofleeën fir se opzemaachen', dropNoFiles: 'Kee .nsd-, .arrz- oder .arr-Fichier',
 };

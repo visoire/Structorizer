@@ -87,4 +87,5 @@ export const cs: Dict = {
   turtleClear: 'Vymazat', turtleGrid: 'Mřížka', turtleDock: 'Ukotvit', turtleFloat: 'Plovoucí',
   panelPos: 'Pozice postranního panelu', execPos: 'Pozice panelu spouštěče',
   posLeft: 'Vlevo', posRight: 'Vpravo', posBottom: 'Dole', posTop: 'Nahoře',
+  dropFiles: 'Pusťte soubory .nsd, .arrz nebo .arr pro otevření', dropNoFiles: 'Žádný soubor .nsd, .arrz nebo .arr',
 };

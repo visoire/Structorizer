@@ -2,7 +2,7 @@
 // Nassi-Shneiderman layout (docs/layout-spec.md). Pure: diagram in, drawing scene out.
 // Shapes and proportions follow lu.fisch.structorizer.elements.*.prepareDraw()/draw().
 import type { Diagram, Element, Hex, SeqRef } from '../model/types';
-import { slotsOf } from '../model/tree';
+import { sameRef, slotsOf } from '../model/tree';
 import { FONT_FAMILY, FONT_SIZE, HALF, LINE_H, P, ROOT_CORNER, baseline, type MeasureFn } from './measure';
 import { displaySpans, displayText, type Span } from './display';
 import { diagramVariables } from '../lang/analyze';
@@ -19,7 +19,11 @@ export type Item =
   | ({ t: 'hatch' } & Rect);
 
 export type Hit =
-  | ({ t: 'el'; id: string; kind: Element['kind']; head: Rect; comment: string[]; branchHeads?: [number, number][][] } & Rect)
+  | ({
+    t: 'el'; id: string; kind: Element['kind']; head: Rect; comment: string[]; branchHeads?: [number, number][][];
+    /** sequence and index the element sits at (drag and drop targets) */
+    seq?: SeqRef; index?: number;
+  } & Rect)
   | ({ t: 'seq'; ref: SeqRef } & Rect)
   | ({ t: 'root' } & Rect);
 
@@ -274,7 +278,10 @@ export function createLayoutEngine(measure: MeasureFn, opts: LayoutOptions = {})
         const s = measureEl(el);
         const eh = i === seq.length - 1 ? y + h - cy : s.h;
         gaps.push({ ref, index: i, x, y: cy, w });
+        const hi = hits.length;
         placeEl(el, x, cy, w, eh);
+        const own = hits[hi];
+        if (own?.t === 'el') { own.seq = ref; own.index = i; }
         cy += eh;
       });
       gaps.push({ ref, index: seq.length, x, y: y + h, w });
@@ -560,6 +567,40 @@ export function hitBranchHead(hit: Hit | null, px: number, py: number): number {
     if (pointInPoly(px, py, hit.branchHeads[i])) return i;
   }
   return -1;
+}
+
+/**
+ * Drop target for drag and drop, based on the element under the pointer (not only on the thin
+ * gap lines): the upper half of an element inserts before it, the lower half after it. For
+ * structured elements the header decides (upper half of the header: before, lower half: after),
+ * so the big body of a loop or IF is not a dead zone. Empty branches take the element itself;
+ * the diagram title inserts at the top, below the diagram at the end.
+ */
+export function dropGap(scene: Scene, px: number, py: number): Gap | null {
+  const gapAt = (ref: SeqRef, index: number) =>
+    scene.gaps.find((g) => g.index === index && sameRef(g.ref, ref)) ?? null;
+  const rootGaps = scene.gaps.filter((g) => g.ref.owner === 'root');
+  const first = rootGaps[0] ?? null;
+  const last = rootGaps[rootGaps.length - 1] ?? null;
+  const hit = hitTest(scene, px, py);
+  if (!hit) {
+    if (py >= scene.height - 1) return last;
+    if (py <= 0) return first;
+    return nearestGap(scene, px, py) ?? last;
+  }
+  if (hit.t === 'seq') return gapAt(hit.ref, 0);
+  if (hit.t === 'root') {
+    if (!first || !last) return null;
+    if (py <= first.y) return first;
+    if (py >= last.y) return last;
+    return nearestGap(scene, px, py) ?? last;
+  }
+  if (!hit.seq || hit.index === undefined) return nearestGap(scene, px, py);
+  const head = hit.head;
+  // header at the top (IF, CASE, FOR, WHILE ...); REPEAT has its condition at the bottom
+  const inHead = head.h < hit.h && head.y <= hit.y + 1 && py >= head.y && py <= head.y + head.h;
+  const mid = inHead ? head.y + head.h / 2 : hit.y + hit.h / 2;
+  return gapAt(hit.seq, py < mid ? hit.index : hit.index + 1);
 }
 
 /** Nearest insertion gap to a point (for drag and drop). */
